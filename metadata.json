@@ -1,0 +1,7 @@
+{
+  "name": "隠れ家 (Kakurega)",
+  "description": "A Japanese-style local event discovery app focusing on finding small, hidden events within your living area.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
