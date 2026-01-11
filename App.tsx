@@ -4,12 +4,22 @@ import {
   Menu, Home as HomeIcon, Search as SearchIcon, Star, 
   MapPin, User, Info, X, Calendar, ArrowRight, Trash2,
   ChevronRight, Filter, Clock, Tag, ExternalLink, CalendarPlus,
-  Share2, ArrowUp
+  Share2, ArrowUp, Link as LinkIcon, Check
 } from 'lucide-react';
 import { EVENTS } from './constants';
 import { KakuregaEvent, UserLocation } from './types';
 
 // --- Shared Components ---
+
+const KakuregaLogo: React.FC<{ className?: string }> = ({ className }) => (
+    <svg viewBox="0 0 100 100" className={className} fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Kakurega Logo">
+        <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="4" className="opacity-90" />
+        <path d="M22 46 Q 50 18 78 46" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M36 46 V 74 H 64 V 46" stroke="currentColor" strokeWidth="4" strokeLinejoin="round"/>
+        <path d="M50 46 V 74" stroke="currentColor" strokeWidth="2.5" />
+        <path d="M36 60 H 64" stroke="currentColor" strokeWidth="2.5" />
+    </svg>
+);
 
 const ScrollToTopButton: React.FC = () => {
     const [isVisible, setIsVisible] = useState(false);
@@ -81,6 +91,42 @@ const AddToCalendarButton: React.FC<{ event: KakuregaEvent, className?: string, 
     );
 };
 
+const CopyLinkButton: React.FC<{ eventId: number, className?: string, children?: React.ReactNode | ((copied: boolean) => React.ReactNode) }> = ({ eventId, className, children }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const url = `${window.location.origin}${window.location.pathname}#/search?event_id=${eventId}`;
+        navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+
+    return (
+        <button
+            onClick={handleCopy}
+            className={className || "bg-black/20 hover:bg-black/40 text-white p-2 rounded-full backdrop-blur-md transition-colors z-10"}
+            title="リンクをコピー"
+        >
+            {typeof children === 'function' ? children(copied) : children}
+            
+            {!children && (
+                 className ? (
+                    <>
+                        {copied ? <Check size={14} /> : <LinkIcon size={14} />}
+                        {copied ? 'コピー完了' : 'リンク'}
+                    </>
+                 ) : (
+                    copied ? <Check size={24} className="text-kakurega-green" /> : <LinkIcon size={24} />
+                 )
+            )}
+        </button>
+    );
+};
+
+
 const EventDetailModal: React.FC<{ eventId: string, onClose: () => void }> = ({ eventId, onClose }) => {
     const event = useMemo(() => EVENTS.find(e => e.id === Number(eventId)), [eventId]);
     
@@ -126,9 +172,17 @@ const EventDetailModal: React.FC<{ eventId: string, onClose: () => void }> = ({ 
                 <div className="h-56 sm:h-72 relative shrink-0">
                     <img src={event.imageUrl || 'https://images.unsplash.com/photo-1528360983277-13d9b152c611?auto=format&fit=crop&q=80'} className="w-full h-full object-cover" alt={event.title} />
                     <div className="absolute inset-0 bg-gradient-to-t from-kakurega-ink/80 via-transparent to-transparent" />
-                    <button onClick={onClose} className="absolute top-4 right-4 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full backdrop-blur-md transition-colors z-10">
-                        <X size={24} />
-                    </button>
+                    <div className="absolute top-4 right-4 flex gap-2 z-10">
+                        <CopyLinkButton 
+                            eventId={event.id} 
+                            className="bg-black/20 hover:bg-black/40 text-white p-2 rounded-full backdrop-blur-md transition-colors flex items-center justify-center"
+                        >
+                             {(copied: boolean) => copied ? <Check size={24} /> : <LinkIcon size={24} />}
+                        </CopyLinkButton>
+                        <button onClick={onClose} className="bg-black/20 hover:bg-black/40 text-white p-2 rounded-full backdrop-blur-md transition-colors flex items-center justify-center">
+                            <X size={24} />
+                        </button>
+                    </div>
                     <div className="absolute bottom-0 left-0 p-6 text-white w-full">
                          <div className="flex items-center gap-2 mb-2">
                              <span className="px-3 py-1 bg-kakurega-green text-xs font-bold rounded-full shadow-sm border border-white/20">
@@ -271,8 +325,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </div>
 
         <div className="absolute left-1/2 transform -translate-x-1/2">
-            <Link to="/" className="font-serif text-2xl font-bold text-[#fffdf6] tracking-widest drop-shadow-md hover:opacity-90 transition-opacity">
-                隠れ家
+            <Link to="/" className="flex items-center gap-3 group">
+                <KakuregaLogo className="w-9 h-9 text-[#fffdf6] drop-shadow-md group-hover:scale-105 transition-transform duration-300" />
+                <span className="font-serif text-2xl font-bold text-[#fffdf6] tracking-widest drop-shadow-md group-hover:opacity-90 transition-opacity">
+                    隠れ家
+                </span>
             </Link>
         </div>
 
@@ -404,10 +461,10 @@ const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
             </div>
 
             {/* Content Area */}
-            <div className="p-4 flex-1 flex flex-col">
+            <div className="p-5 flex-1 flex flex-col">
                 {/* Tags */}
                 {event.tags && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
+                    <div className="flex flex-wrap gap-1.5 mb-3">
                         {event.tags.map(tag => (
                             <span key={tag} className="text-[10px] text-kakurega-muted bg-kakurega-paper px-2 py-0.5 rounded-md">
                                 {tag}
@@ -416,11 +473,11 @@ const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
                     </div>
                 )}
 
-                <h3 className="font-serif text-lg font-bold text-kakurega-ink mb-2 leading-snug group-hover:text-kakurega-green transition-colors">
+                <h3 className="font-serif text-lg font-bold text-kakurega-ink mb-3 leading-snug group-hover:text-kakurega-green transition-colors">
                     {event.title}
                 </h3>
 
-                <div className="space-y-1.5 mb-3">
+                <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2 text-xs text-kakurega-muted">
                         <Clock size={12} className="text-kakurega-green" />
                         <span>{event.startTime} - {event.endTime}</span>
@@ -437,19 +494,20 @@ const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
                     )}
                 </div>
 
-                <p className="text-xs text-kakurega-muted/80 line-clamp-2 mb-4 flex-1 leading-relaxed">
+                <p className="text-xs text-kakurega-muted/80 line-clamp-2 mb-5 flex-1 leading-relaxed">
                     {event.description}
                 </p>
 
                 {/* Footer */}
-                <div className="pt-3 border-t border-black/5 flex items-center justify-between mt-auto">
+                <div className="pt-4 border-t border-black/5 flex items-center justify-between mt-auto">
                     <div className="flex flex-col">
-                        <span className="text-[10px] text-kakurega-muted">参加費</span>
+                        <span className="text-[10px] text-kakurega-muted mb-0.5">参加費</span>
                         <span className="font-bold text-kakurega-green text-sm">
                             {event.priceYen === 0 ? '無料' : `¥${event.priceYen.toLocaleString()}`}
                         </span>
                     </div>
                     <div className="flex gap-2">
+                         <CopyLinkButton eventId={event.id} className="flex items-center gap-1.5 text-[10px] font-bold text-kakurega-muted bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/10 px-3 py-1.5 rounded-full transition-colors" />
                          <AddToCalendarButton event={event} />
                     </div>
                 </div>
