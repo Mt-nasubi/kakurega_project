@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>隠れ家｜保存</title>
+
+    <link rel="stylesheet" href="css/headerStyle.css">
+    <link rel="stylesheet" href="css/layout.css">
+</head>
+<body>
+
+<div class="app">
+    <header class="header">
+        <div class="header-left">
+            <button class="menu-btn" type="button" aria-label="メニュー">
+                <span class="menu-icon">☰</span>
+                <span class="menu-text">メニュー</span>
+            </button>
+        </div>
+
+        <div class="header-center">
+            <a class="site-title-link" href="index.html" aria-label="ホームへ">隠れ家</a>
+        </div>
+
+        <div class="header-right">
+            <button class="login-btn" type="button" aria-label="ログイン">
+                <img src="images/loginImg.png" alt="" class="login-icon">
+                <span class="login-text">ログイン</span>
+            </button>
+        </div>
+    </header>
+
+    <nav class="sidebar" aria-label="サイドメニュー">
+        <a class="nav-item" href="index.html">
+            <div class="nav-icon">🏠</div>
+            <div class="nav-text">ホーム</div>
+        </a>
+
+        <a class="nav-item" href="search.html">
+            <div class="nav-icon">🔍</div>
+            <div class="nav-text">検索</div>
+        </a>
+
+        <a class="nav-item active" href="saved.html">
+            <div class="nav-icon">⭐</div>
+            <div class="nav-text">保存</div>
+        </a>
+
+        <a class="nav-item" href="about.html">
+            <div class="nav-icon">🏮</div>
+            <div class="nav-text">企業</div>
+        </a>
+    </nav>
+
+    <main class="main">
+        <div class="page">
+            <h1 class="page-title">保存したイベント</h1>
+            <p class="page-sub">この端末のブラウザに保存されています。</p>
+
+            <div id="savedList" class="cards"></div>
+        </div>
+    </main>
+</div>
+
+<script src="js/events.js"></script>
+<script src="js/saved.js"></script>
+
+</body>
+</html>
