@@ -1,18 +1,179 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Menu, Home as HomeIcon, Search as SearchIcon, Star, 
   MapPin, User, Info, X, Calendar, ArrowRight, Trash2,
-  ChevronRight, Filter, Clock, Tag, ExternalLink, CalendarPlus
+  ChevronRight, Filter, Clock, Tag, ExternalLink, CalendarPlus,
+  Share2
 } from 'lucide-react';
 import { EVENTS } from './constants';
 import { KakuregaEvent, UserLocation } from './types';
 
 // --- Shared Components ---
 
+const EventDetailModal: React.FC<{ eventId: string, onClose: () => void }> = ({ eventId, onClose }) => {
+    const event = useMemo(() => EVENTS.find(e => e.id === Number(eventId)), [eventId]);
+    
+    // Prevent background scroll
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = 'auto'; };
+    }, []);
+
+    // Load saved state
+    const [isSaved, setIsSaved] = useState(false);
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("savedEventIds");
+            const ids: number[] = raw ? JSON.parse(raw) : [];
+            setIsSaved(ids.includes(Number(eventId)));
+        } catch {}
+    }, [eventId]);
+
+    const toggleSave = () => {
+        try {
+            const raw = localStorage.getItem("savedEventIds");
+            const ids: number[] = raw ? JSON.parse(raw) : [];
+            let newIds;
+            if (ids.includes(Number(eventId))) {
+                newIds = ids.filter(i => i !== Number(eventId));
+                setIsSaved(false);
+            } else {
+                newIds = [...ids, Number(eventId)];
+                setIsSaved(true);
+            }
+            localStorage.setItem("savedEventIds", JSON.stringify(newIds));
+        } catch {}
+    };
+
+    if (!event) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="bg-[#f8f1e3] w-full max-w-2xl max-h-[90vh] rounded-3xl shadow-2xl relative overflow-hidden flex flex-col animate-fade-in">
+                {/* Image Header */}
+                <div className="h-56 sm:h-72 relative shrink-0">
+                    <img src={event.imageUrl || 'https://images.unsplash.com/photo-1528360983277-13d9b152c611?auto=format&fit=crop&q=80'} className="w-full h-full object-cover" alt={event.title} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-kakurega-ink/80 via-transparent to-transparent" />
+                    <button onClick={onClose} className="absolute top-4 right-4 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full backdrop-blur-md transition-colors z-10">
+                        <X size={24} />
+                    </button>
+                    <div className="absolute bottom-0 left-0 p-6 text-white w-full">
+                         <div className="flex items-center gap-2 mb-2">
+                             <span className="px-3 py-1 bg-kakurega-green text-xs font-bold rounded-full shadow-sm border border-white/20">
+                                {event.category}
+                             </span>
+                             {event.distKm && (
+                                 <span className="px-2 py-1 bg-black/40 backdrop-blur text-xs rounded-full flex items-center gap-1">
+                                     <MapPin size={10} /> {event.distKm.toFixed(1)}km
+                                 </span>
+                             )}
+                         </div>
+                         <h2 className="font-serif text-2xl sm:text-3xl font-bold leading-tight drop-shadow-md">
+                            {event.title}
+                         </h2>
+                    </div>
+                </div>
+                
+                {/* Content */}
+                <div className="overflow-y-auto p-6 custom-scrollbar bg-[#f8f1e3]">
+                    {/* Basic Info Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                        <div className="bg-white/60 p-3.5 rounded-2xl border border-black/5 flex items-start gap-3">
+                             <div className="p-2 bg-kakurega-green/10 rounded-full text-kakurega-green mt-0.5"><Calendar size={18} /></div>
+                             <div>
+                                <p className="text-[10px] text-kakurega-muted font-bold tracking-wider">DATE</p>
+                                <p className="font-bold text-kakurega-ink text-sm">{event.date.replace(/-/g, '.')}</p>
+                                <p className="text-xs text-kakurega-muted mt-0.5">{event.startTime} - {event.endTime}</p>
+                             </div>
+                        </div>
+                        <div className="bg-white/60 p-3.5 rounded-2xl border border-black/5 flex items-start gap-3">
+                             <div className="p-2 bg-kakurega-green/10 rounded-full text-kakurega-green mt-0.5"><MapPin size={18} /></div>
+                             <div>
+                                <p className="text-[10px] text-kakurega-muted font-bold tracking-wider">AREA</p>
+                                <p className="font-bold text-kakurega-ink text-sm">{event.city}</p>
+                                <p className="text-xs text-kakurega-muted mt-0.5">{event.area}</p>
+                             </div>
+                        </div>
+                         <div className="bg-white/60 p-3.5 rounded-2xl border border-black/5 flex items-start gap-3">
+                             <div className="p-2 bg-kakurega-green/10 rounded-full text-kakurega-green mt-0.5"><User size={18} /></div>
+                             <div>
+                                <p className="text-[10px] text-kakurega-muted font-bold tracking-wider">ORGANIZER</p>
+                                <p className="font-bold text-kakurega-ink text-sm">{event.organizer || '詳細なし'}</p>
+                             </div>
+                        </div>
+                         <div className="bg-white/60 p-3.5 rounded-2xl border border-black/5 flex items-start gap-3">
+                             <div className="p-2 bg-kakurega-green/10 rounded-full text-kakurega-green mt-0.5"><Tag size={18} /></div>
+                             <div>
+                                <p className="text-[10px] text-kakurega-muted font-bold tracking-wider">PRICE</p>
+                                <p className="font-bold text-kakurega-green text-sm">{event.priceYen === 0 ? '無料' : `¥${event.priceYen.toLocaleString()}`}</p>
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* Description */}
+                    <div className="mb-8">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-1 h-5 bg-kakurega-green rounded-full"></div>
+                            <h3 className="font-serif text-lg font-bold text-kakurega-ink">イベント詳細</h3>
+                        </div>
+                        <p className="leading-loose text-sm text-kakurega-ink/90 whitespace-pre-wrap font-medium">
+                            {event.description || "詳細情報は現在確認中です。主催者へお問い合わせください。"}
+                        </p>
+                    </div>
+
+                    {/* Tags */}
+                    {event.tags && event.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-8">
+                            {event.tags.map(t => (
+                                <span key={t} className="px-3 py-1.5 bg-white border border-black/5 rounded-lg text-xs font-medium text-kakurega-muted shadow-sm">
+                                    {t}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    
+                    {/* Action Bar */}
+                    <div className="flex flex-col gap-3 pt-6 border-t border-black/10">
+                        <div className="flex gap-3">
+                            <AddToCalendarButton event={event} className="flex-1 py-3 text-sm font-bold justify-center bg-white border-2 border-transparent hover:border-kakurega-green/30 shadow-sm text-kakurega-ink rounded-xl transition-all" />
+                            <button 
+                                onClick={toggleSave}
+                                className={`flex-1 py-3 rounded-xl font-bold shadow-md transition-all flex items-center justify-center gap-2 border-2
+                                    ${isSaved 
+                                        ? 'bg-white border-kakurega-green text-kakurega-green' 
+                                        : 'bg-kakurega-green border-transparent text-white hover:bg-kakurega-dark-green'
+                                    }`}
+                            >
+                                <Star size={18} fill={isSaved ? "currentColor" : "none"} /> 
+                                {isSaved ? '保存済み' : '保存する'}
+                            </button>
+                        </div>
+                        <div className="flex justify-center">
+                            <Link to={`/search?id=${eventId}`} onClick={onClose} className="text-xs text-kakurega-muted flex items-center gap-1 hover:text-kakurega-green transition-colors py-2">
+                                <MapPin size={12} />
+                                地図で位置を確認する
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const detailId = searchParams.get('event_id');
+
+  const closeDetail = () => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('event_id');
+    setSearchParams(newParams);
+  };
 
   const navItems = [
     { path: '/', icon: <HomeIcon size={22} />, label: 'ホーム' },
@@ -23,6 +184,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-kakurega-paper bg-wafu-pattern text-kakurega-ink relative flex flex-col">
+      {/* Event Detail Modal (Global) */}
+      {detailId && <EventDetailModal eventId={detailId} onClose={closeDetail} />}
+
       {/* Header */}
       <header className="h-[1.5cm] flex items-center justify-between px-4 bg-gradient-to-b from-kakurega-green to-kakurega-dark-green border-b border-black/10 fixed top-0 w-full z-50 shadow-md">
         <div className="flex items-center">
@@ -121,13 +285,12 @@ const Card: React.FC<{ children: React.ReactNode; className?: string; onClick?: 
   </div>
 );
 
-const AddToCalendarButton: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
+const AddToCalendarButton: React.FC<{ event: KakuregaEvent, className?: string }> = ({ event, className }) => {
     const googleCalendarUrl = useMemo(() => {
         const title = encodeURIComponent(event.title);
         const location = encodeURIComponent(`${event.city} ${event.area}`);
         const details = encodeURIComponent(event.description || '');
         const dateStr = event.date.replace(/-/g, '');
-        // Simple time parsing for example (assuming HH:MM)
         const start = event.startTime ? event.startTime.replace(':', '') : '1000';
         const end = event.endTime ? event.endTime.replace(':', '') : '1200';
         const dates = `${dateStr}T${start}00/${dateStr}T${end}00`;
@@ -140,24 +303,35 @@ const AddToCalendarButton: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
             href={googleCalendarUrl} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-[10px] font-bold text-kakurega-muted bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/10 px-3 py-1.5 rounded-full transition-colors"
+            className={className || "flex items-center gap-1.5 text-[10px] font-bold text-kakurega-muted bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/10 px-3 py-1.5 rounded-full transition-colors"}
             onClick={(e) => e.stopPropagation()}
         >
-            <CalendarPlus size={14} />
+            <CalendarPlus size={16} />
             予定に追加
         </a>
     );
 };
 
 const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
+    const [, setSearchParams] = useSearchParams();
+    
     const [month, day] = useMemo(() => {
         const d = new Date(event.date);
         return [d.getMonth() + 1, d.getDate()];
     }, [event.date]);
 
+    const openDetail = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('event_id', String(event.id));
+            return next;
+        });
+    };
+
     return (
         <div 
-            onClick={() => window.location.hash = `#/search?id=${event.id}`}
+            onClick={openDetail}
             className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-black/5 cursor-pointer flex flex-col h-full relative"
         >
             {/* Image Area */}
@@ -331,6 +505,7 @@ const MapViewer: React.FC<{
 }> = ({ events, userLocation, onSave }) => {
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const [, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     if (!mapRef.current) {
@@ -375,34 +550,49 @@ const MapViewer: React.FC<{
                 <h3 style="font-weight:bold; margin-bottom:4px; color:#0e6b2a; font-size:14px;">${e.title}</h3>
                 <p style="font-size:11px; margin:0; color:#555;">${e.date} ${e.startTime ? `/ ${e.startTime}~` : ''}</p>
                 <p style="font-size:11px; margin:0; margin-bottom: 8px; color:#555;">${e.city} (${e.area}) - <b>${priceText}</b></p>
-                <button id="popup-save-${e.id}" style="
-                    background-color: #0e6b2a; 
-                    color: white;
-                    border: none; 
-                    padding: 6px 12px; 
-                    border-radius: 4px; 
-                    font-size: 11px; 
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 4px;
-                    width: 100%;
-                ">
-                   ⭐ 保存する
-                </button>
+                <div style="display:flex; gap:4px;">
+                    <button id="popup-detail-${e.id}" style="
+                        background-color: #f3e6d2; 
+                        border: 1px solid #ccc; 
+                        padding: 6px 12px; 
+                        border-radius: 4px; 
+                        font-size: 11px; 
+                        cursor: pointer;
+                        flex: 1;
+                    ">
+                    詳細
+                    </button>
+                    <button id="popup-save-${e.id}" style="
+                        background-color: #0e6b2a; 
+                        color: white;
+                        border: none; 
+                        padding: 6px 12px; 
+                        border-radius: 4px; 
+                        font-size: 11px; 
+                        cursor: pointer;
+                        flex: 1;
+                    ">
+                    保存
+                    </button>
+                </div>
             </div>
         `;
         
-        // Use a timeout to attach event listener after popup opens or just delegate
-        // Since Leaflet popups are dynamic, delegation is safer, but button inside popup is tricky in React
-        // We will use standard DOM onclick for simplicity in this specific generated code
-        
         marker.bindPopup(popupContent);
         marker.on('popupopen', () => {
-            const btn = document.getElementById(`popup-save-${e.id}`);
-            if(btn) {
-                btn.onclick = () => onSave(e.id);
+            const btnSave = document.getElementById(`popup-save-${e.id}`);
+            const btnDetail = document.getElementById(`popup-detail-${e.id}`);
+            if(btnSave) {
+                btnSave.onclick = () => onSave(e.id);
+            }
+            if(btnDetail) {
+                btnDetail.onclick = () => {
+                    setSearchParams(prev => {
+                        const next = new URLSearchParams(prev);
+                        next.set('event_id', String(e.id));
+                        return next;
+                    });
+                };
             }
         });
 
@@ -415,7 +605,7 @@ const MapViewer: React.FC<{
        map.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 14 });
     }
 
-  }, [events, userLocation, onSave]);
+  }, [events, userLocation, onSave, setSearchParams]);
 
   return <div id="leaflet-map" className="h-full w-full bg-gray-100" />;
 };
@@ -435,6 +625,7 @@ const SearchPage: React.FC = () => {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locStatus, setLocStatus] = useState('');
   const [filteredEvents, setFilteredEvents] = useState<KakuregaEvent[]>(EVENTS);
+  const [, setSearchParams] = useSearchParams();
 
   // Load Saved IDs
   const getSavedIds = () => {
@@ -453,6 +644,14 @@ const SearchPage: React.FC = () => {
     } else {
         alert("すでに保存されています");
     }
+  };
+
+  const openDetail = (id: number) => {
+    setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.set('event_id', String(id));
+        return next;
+    });
   };
 
   const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -642,23 +841,29 @@ const SearchPage: React.FC = () => {
                   <div className="text-center py-10 opacity-60 text-sm">条件に合うイベントが<br/>見つかりませんでした。</div>
               ) : (
                   filteredEvents.map(e => (
-                    <div key={e.id} className="bg-white border border-black/5 rounded-xl p-3 hover:border-kakurega-green/50 transition-colors">
+                    <div 
+                        key={e.id} 
+                        onClick={() => openDetail(e.id)}
+                        className="bg-white border border-black/5 rounded-xl p-3 hover:border-kakurega-green/50 hover:shadow-md transition-all cursor-pointer group"
+                    >
                         <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-bold text-sm text-kakurega-ink">{e.title}</h3>
+                            <h3 className="font-bold text-sm text-kakurega-ink group-hover:text-kakurega-green transition-colors">{e.title}</h3>
                             <span className="text-[10px] bg-kakurega-paper px-1.5 py-0.5 rounded text-kakurega-dark-green whitespace-nowrap">{e.category}</span>
                         </div>
                         <p className="text-xs text-kakurega-muted mb-2">{e.date} / {e.city} <span className="text-kakurega-green font-bold ml-1">{e.priceYen === 0 ? '無料' : `¥${e.priceYen}`}</span> {e.distKm && <span className="text-[10px] ml-1 opacity-70">({e.distKm.toFixed(1)}km)</span>}</p>
                         
                         <div className="flex justify-end gap-2">
-                            <button onClick={() => {
-                                const map = (window as any).L?.map; // MapViewer handles the instance, but we can't easily access it here in this structure without Context. 
-                                // For simplicity, we just rely on map view fitting bounds on filter change.
-                                // Or we could scroll to top.
+                            <button onClick={(ev) => {
+                                ev.stopPropagation();
+                                const map = (window as any).L?.map; 
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                             }} className="text-[10px] px-2 py-1 rounded border border-black/10 hover:bg-gray-50 flex items-center gap-1">
                                 <MapPin size={10} /> 地図
                             </button>
-                            <button onClick={() => handleSave(e.id)} className="text-[10px] px-2 py-1 rounded bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/5 flex items-center gap-1 text-kakurega-dark-green font-bold">
+                            <button onClick={(ev) => {
+                                ev.stopPropagation();
+                                handleSave(e.id);
+                            }} className="text-[10px] px-2 py-1 rounded bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/5 flex items-center gap-1 text-kakurega-dark-green font-bold">
                                 <Star size={10} /> 保存
                             </button>
                         </div>
@@ -674,6 +879,7 @@ const SearchPage: React.FC = () => {
 
 const SavedPage: React.FC = () => {
     const [savedEvents, setSavedEvents] = useState<KakuregaEvent[]>([]);
+    const [, setSearchParams] = useSearchParams();
 
     const loadSaved = () => {
         try {
@@ -696,6 +902,14 @@ const SavedPage: React.FC = () => {
         } catch {}
     };
 
+    const openDetail = (id: number) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('event_id', String(id));
+            return next;
+        });
+    };
+
     return (
         <div className="space-y-6">
             <div className="mb-6">
@@ -714,7 +928,7 @@ const SavedPage: React.FC = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {savedEvents.map(e => (
-                        <Card key={e.id} className="relative group p-0 overflow-hidden flex flex-col">
+                        <Card key={e.id} className="relative group p-0 overflow-hidden flex flex-col cursor-pointer" onClick={() => openDetail(e.id)}>
                             {e.imageUrl && (
                                 <div className="h-32 w-full overflow-hidden relative">
                                     <img src={e.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={e.title} />
@@ -723,7 +937,10 @@ const SavedPage: React.FC = () => {
                             )}
                             <div className="p-4 flex-1 flex flex-col">
                                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <button onClick={() => removeSaved(e.id)} className="p-2 bg-white/90 text-red-500 rounded-full hover:bg-white shadow-sm transition-all" title="削除">
+                                    <button onClick={(ev) => {
+                                        ev.stopPropagation();
+                                        removeSaved(e.id);
+                                    }} className="p-2 bg-white/90 text-red-500 rounded-full hover:bg-white shadow-sm transition-all" title="削除">
                                         <Trash2 size={14} />
                                     </button>
                                 </div>
@@ -742,9 +959,9 @@ const SavedPage: React.FC = () => {
                                 </div>
                                 <div className="flex justify-between items-center mt-auto pt-3 border-t border-black/5">
                                     <span className="font-bold text-kakurega-green text-sm">{e.priceYen === 0 ? '無料' : `¥${e.priceYen.toLocaleString()}`}</span>
-                                    <Link to="/search" className="text-[10px] text-kakurega-muted hover:text-kakurega-green flex items-center gap-1">
-                                        地図で見る <ArrowRight size={10} />
-                                    </Link>
+                                    <span className="text-[10px] text-kakurega-muted hover:text-kakurega-green flex items-center gap-1">
+                                        詳細を見る <ArrowRight size={10} />
+                                    </span>
                                 </div>
                             </div>
                         </Card>
