@@ -4,12 +4,82 @@ import {
   Menu, Home as HomeIcon, Search as SearchIcon, Star, 
   MapPin, User, Info, X, Calendar, ArrowRight, Trash2,
   ChevronRight, Filter, Clock, Tag, ExternalLink, CalendarPlus,
-  Share2
+  Share2, ArrowUp
 } from 'lucide-react';
 import { EVENTS } from './constants';
 import { KakuregaEvent, UserLocation } from './types';
 
 // --- Shared Components ---
+
+const ScrollToTopButton: React.FC = () => {
+    const [isVisible, setIsVisible] = useState(false);
+    
+    useEffect(() => {
+        const toggleVisibility = () => {
+            if (window.scrollY > 300) {
+                setIsVisible(true);
+            } else {
+                setIsVisible(false);
+            }
+        };
+
+        window.addEventListener('scroll', toggleVisibility);
+        return () => window.removeEventListener('scroll', toggleVisibility);
+    }, []);
+
+    const scrollToTop = () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth',
+        });
+    };
+
+    if (!isVisible) {
+        return null;
+    }
+
+    return (
+        <button
+            onClick={scrollToTop}
+            className="fixed bottom-6 right-6 z-40 p-3 rounded-full bg-kakurega-green text-white shadow-xl hover:bg-kakurega-dark-green hover:-translate-y-1 transition-all duration-300 animate-fade-in border-2 border-[#f8f1e3]"
+            aria-label="ページトップへ戻る"
+        >
+            <ArrowUp size={24} />
+        </button>
+    );
+};
+
+const AddToCalendarButton: React.FC<{ event: KakuregaEvent, className?: string, children?: React.ReactNode }> = ({ event, className, children }) => {
+    const googleCalendarUrl = useMemo(() => {
+        const title = encodeURIComponent(event.title);
+        const location = encodeURIComponent(`${event.city} ${event.area}`);
+        const details = encodeURIComponent(event.description || '');
+        const dateStr = event.date.replace(/-/g, '');
+        const start = event.startTime ? event.startTime.replace(':', '') : '1000';
+        const end = event.endTime ? event.endTime.replace(':', '') : '1200';
+        const dates = `${dateStr}T${start}00/${dateStr}T${end}00`;
+        
+        // ctz=Asia/Tokyo adds Timezone support ensuring events are added in JST
+        return `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}&ctz=Asia/Tokyo`;
+    }, [event]);
+
+    return (
+        <a 
+            href={googleCalendarUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className={className || "flex items-center gap-1.5 text-[10px] font-bold text-kakurega-muted bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/10 px-3 py-1.5 rounded-full transition-colors"}
+            onClick={(e) => e.stopPropagation()}
+        >
+            {children ? children : (
+                <>
+                    <CalendarPlus size={16} />
+                    予定に追加
+                </>
+            )}
+        </a>
+    );
+};
 
 const EventDetailModal: React.FC<{ eventId: string, onClose: () => void }> = ({ eventId, onClose }) => {
     const event = useMemo(() => EVENTS.find(e => e.id === Number(eventId)), [eventId]);
@@ -137,7 +207,7 @@ const EventDetailModal: React.FC<{ eventId: string, onClose: () => void }> = ({ 
                     {/* Action Bar */}
                     <div className="flex flex-col gap-3 pt-6 border-t border-black/10">
                         <div className="flex gap-3">
-                            <AddToCalendarButton event={event} className="flex-1 py-3 text-sm font-bold justify-center bg-white border-2 border-transparent hover:border-kakurega-green/30 shadow-sm text-kakurega-ink rounded-xl transition-all" />
+                            <AddToCalendarButton event={event} className="flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 bg-white border-2 border-transparent hover:border-kakurega-green/30 shadow-sm text-kakurega-ink rounded-xl transition-all" />
                             <button 
                                 onClick={toggleSave}
                                 className={`flex-1 py-3 rounded-xl font-bold shadow-md transition-all flex items-center justify-center gap-2 border-2
@@ -272,6 +342,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {children}
         </div>
       </main>
+      
+      {/* Global Scroll To Top Button */}
+      <ScrollToTopButton />
     </div>
   );
 };
@@ -284,33 +357,6 @@ const Card: React.FC<{ children: React.ReactNode; className?: string; onClick?: 
     {children}
   </div>
 );
-
-const AddToCalendarButton: React.FC<{ event: KakuregaEvent, className?: string }> = ({ event, className }) => {
-    const googleCalendarUrl = useMemo(() => {
-        const title = encodeURIComponent(event.title);
-        const location = encodeURIComponent(`${event.city} ${event.area}`);
-        const details = encodeURIComponent(event.description || '');
-        const dateStr = event.date.replace(/-/g, '');
-        const start = event.startTime ? event.startTime.replace(':', '') : '1000';
-        const end = event.endTime ? event.endTime.replace(':', '') : '1200';
-        const dates = `${dateStr}T${start}00/${dateStr}T${end}00`;
-        
-        return `https://www.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}&location=${location}`;
-    }, [event]);
-
-    return (
-        <a 
-            href={googleCalendarUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className={className || "flex items-center gap-1.5 text-[10px] font-bold text-kakurega-muted bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/10 px-3 py-1.5 rounded-full transition-colors"}
-            onClick={(e) => e.stopPropagation()}
-        >
-            <CalendarPlus size={16} />
-            予定に追加
-        </a>
-    );
-};
 
 const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
     const [, setSearchParams] = useSearchParams();
@@ -853,11 +899,17 @@ const SearchPage: React.FC = () => {
                         <p className="text-xs text-kakurega-muted mb-2">{e.date} / {e.city} <span className="text-kakurega-green font-bold ml-1">{e.priceYen === 0 ? '無料' : `¥${e.priceYen}`}</span> {e.distKm && <span className="text-[10px] ml-1 opacity-70">({e.distKm.toFixed(1)}km)</span>}</p>
                         
                         <div className="flex justify-end gap-2">
+                            <AddToCalendarButton 
+                                event={e} 
+                                className="text-[10px] px-2 py-1 rounded border border-black/10 hover:bg-gray-50 flex items-center gap-1 text-kakurega-muted hover:text-kakurega-green transition-colors"
+                            >
+                                <CalendarPlus size={10} /> 追加
+                            </AddToCalendarButton>
                             <button onClick={(ev) => {
                                 ev.stopPropagation();
                                 const map = (window as any).L?.map; 
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }} className="text-[10px] px-2 py-1 rounded border border-black/10 hover:bg-gray-50 flex items-center gap-1">
+                            }} className="text-[10px] px-2 py-1 rounded border border-black/10 hover:bg-gray-50 flex items-center gap-1 text-kakurega-muted">
                                 <MapPin size={10} /> 地図
                             </button>
                             <button onClick={(ev) => {
