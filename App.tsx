@@ -394,8 +394,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 pt-[1.5cm] md:pl-[102px] p-4 md:p-6 overflow-x-hidden">
-        <div className="max-w-5xl mx-auto w-full animate-fade-in">
+      <main className="flex-1 pt-[1.5cm] md:pl-[102px] overflow-x-hidden">
+        <div className="w-full animate-fade-in">
           {children}
         </div>
       </main>
@@ -535,7 +535,7 @@ const HeroSection = () => {
     }, [images.length]);
 
     return (
-        <section className="relative w-full h-[500px] md:h-[600px] rounded-[30px] overflow-hidden shadow-2xl mb-10 group">
+        <section className="relative w-full h-[500px] md:h-[600px] rounded-b-[40px] overflow-hidden shadow-xl mb-10 group">
             {/* Background Slideshow */}
             {images.map((img, index) => (
                 <div 
@@ -615,6 +615,104 @@ const HeroSection = () => {
     );
 };
 
+// --- Map Component Helper ---
+
+const MapViewer: React.FC<{ events: KakuregaEvent[], userLocation: UserLocation | null, onSave: (id: number) => void }> = ({ events, userLocation, onSave }) => {
+    const mapRef = useRef<HTMLDivElement>(null);
+    const mapInstance = useRef<any>(null);
+    const markersRef = useRef<any[]>([]);
+    const [isMapReady, setIsMapReady] = useState(false);
+
+    useEffect(() => {
+        if (window.L) {
+            setIsMapReady(true);
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.onload = () => setIsMapReady(true);
+        document.head.appendChild(script);
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+    }, []);
+
+    useEffect(() => {
+        if (!isMapReady || !mapRef.current) return;
+        if (!mapInstance.current) {
+             const L = window.L;
+             mapInstance.current = L.map(mapRef.current, { zoomControl: false }).setView([34.6937, 135.1955], 11);
+             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                 attribution: '&copy; OpenStreetMap &copy; CARTO',
+                 subdomains: 'abcd',
+                 maxZoom: 19
+             }).addTo(mapInstance.current);
+             L.control.zoom({ position: 'bottomright' }).addTo(mapInstance.current);
+        }
+    }, [isMapReady]);
+
+    useEffect(() => {
+        if (!isMapReady || !mapInstance.current) return;
+        const L = window.L;
+        const map = mapInstance.current;
+
+        // Clear
+        markersRef.current.forEach(m => map.removeLayer(m));
+        markersRef.current = [];
+
+        // User Location
+        if (userLocation) {
+             const userIcon = L.divIcon({
+                className: 'user-marker',
+                html: `<div style="background-color:#3b82f6;width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [14, 14]
+            });
+            markersRef.current.push(L.marker([userLocation.lat, userLocation.lng], { icon: userIcon }).addTo(map));
+        }
+
+        events.forEach(e => {
+            const icon = L.divIcon({
+                className: 'event-marker',
+                html: `<div style="background-color:#0e6b2a;color:white;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid white;box-shadow:0 3px 5px rgba(0,0,0,0.2);"><span style="transform:rotate(45deg);font-size:12px;font-weight:bold;">${e.id}</span></div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
+            });
+            const m = L.marker([e.lat, e.lng], { icon }).addTo(map);
+            
+            const content = document.createElement('div');
+            content.innerHTML = `
+                <div style="width:200px;">
+                    <div style="height:100px;background:url('${e.imageUrl}') center/cover;border-radius:8px 8px 0 0;"></div>
+                    <div style="padding:8px;">
+                        <div style="font-size:10px;color:#0e6b2a;font-weight:bold;">${e.category}</div>
+                        <div style="font-weight:bold;font-size:13px;margin:2px 0;">${e.title}</div>
+                        <div style="font-size:10px;color:#666;margin-bottom:6px;">${e.date}</div>
+                        <button id="btn-detail-${e.id}" style="width:100%;background:#0e6b2a;color:white;border:none;padding:4px;border-radius:4px;cursor:pointer;">詳細</button>
+                    </div>
+                </div>
+            `;
+            m.bindPopup(content);
+            m.on('popupopen', () => {
+                const b = document.getElementById(`btn-detail-${e.id}`);
+                if(b) b.onclick = () => window.location.hash = `#/search?event_id=${e.id}`;
+            });
+            markersRef.current.push(m);
+        });
+        
+        // Fit Bounds
+        if (markersRef.current.length > 0) {
+            map.fitBounds(L.featureGroup(markersRef.current).getBounds(), { padding: [50, 50] });
+        }
+
+    }, [isMapReady, events, userLocation, onSave]);
+
+    return <div ref={mapRef} className="w-full h-full" />;
+};
+
 // --- Pages ---
 
 const HomePage: React.FC = () => {
@@ -627,164 +725,52 @@ const HomePage: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="pb-10">
       <HeroSection />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { title: '探しやすさ', desc: 'キーワード入力不要。直感的な選択で、迷わず目的のイベントへ。' },
-          { title: '生活圏ファースト', desc: '行政区切りではなく「行ける距離」で。隣町の魅力も発見できます。' },
-          { title: '保存して計画', desc: '気になったらワンタップで保存。週末の予定作りをスムーズに。' },
-        ].map((item, i) => (
-          <Card key={i} className="hover:bg-white transition-colors">
-            <h2 className="text-sm font-bold mb-2 text-kakurega-green font-serif">{item.title}</h2>
-            <p className="text-xs leading-relaxed opacity-70">{item.desc}</p>
-          </Card>
-        ))}
-      </div>
+      <div className="max-w-5xl mx-auto px-4 md:px-6 space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+            { title: '探しやすさ', desc: 'キーワード入力不要。直感的な選択で、迷わず目的のイベントへ。' },
+            { title: '生活圏ファースト', desc: '行政区切りではなく「行ける距離」で。隣町の魅力も発見できます。' },
+            { title: '保存して計画', desc: '気になったらワンタップで保存。週末の予定作りをスムーズに。' },
+            ].map((item, i) => (
+            <Card key={i} className="hover:bg-white transition-colors">
+                <h2 className="text-sm font-bold mb-2 text-kakurega-green font-serif">{item.title}</h2>
+                <p className="text-xs leading-relaxed opacity-70">{item.desc}</p>
+            </Card>
+            ))}
+        </div>
 
-      <section>
-        <div className="flex justify-between items-end mb-6 px-1">
-          <div>
-              <h2 className="font-serif text-2xl text-kakurega-ink font-bold mb-1">おすすめのイベント</h2>
-              <p className="text-xs text-kakurega-muted">あなたの街の近くで見つかる、特別な体験</p>
-          </div>
-          <Link to="/search" className="text-xs font-bold text-kakurega-green hover:text-kakurega-dark-green flex items-center gap-1 group">
-              すべて見る <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {randomPicks.map(e => (
-            <RichEventCard key={e.id} event={e} />
-          ))}
-        </div>
-        
-        <div className="mt-10 text-center">
-             <p className="text-xs text-kakurega-muted mb-4">条件を指定して、もっと探してみませんか？</p>
-            <Link to="/search" className="inline-flex items-center gap-2 px-8 py-3 bg-white text-kakurega-green border-2 border-kakurega-green rounded-xl text-sm font-bold shadow-sm hover:bg-kakurega-green hover:text-white transition-colors">
-                <Filter size={16} />
-                詳細検索ページへ
+        <section>
+            <div className="flex justify-between items-end mb-6 px-1">
+            <div>
+                <h2 className="font-serif text-2xl text-kakurega-ink font-bold mb-1">おすすめのイベント</h2>
+                <p className="text-xs text-kakurega-muted">あなたの街の近くで見つかる、特別な体験</p>
+            </div>
+            <Link to="/search" className="text-xs font-bold text-kakurega-green hover:text-kakurega-dark-green flex items-center gap-1 group">
+                すべて見る <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
             </Link>
-        </div>
-      </section>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {randomPicks.map(e => (
+                <RichEventCard key={e.id} event={e} />
+            ))}
+            </div>
+            
+            <div className="mt-10 text-center">
+                <p className="text-xs text-kakurega-muted mb-4">条件を指定して、もっと探してみませんか？</p>
+                <Link to="/search" className="inline-flex items-center gap-2 px-8 py-3 bg-white text-kakurega-green border-2 border-kakurega-green rounded-xl text-sm font-bold shadow-sm hover:bg-kakurega-green hover:text-white transition-colors">
+                    <Filter size={16} />
+                    詳細検索ページへ
+                </Link>
+            </div>
+        </section>
+      </div>
     </div>
   );
 };
-
-// --- Map Component Helper ---
-const MapViewer: React.FC<{ 
-  events: KakuregaEvent[], 
-  userLocation: UserLocation | null, 
-  onSave: (id: number) => void 
-}> = ({ events, userLocation, onSave }) => {
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const [, setSearchParams] = useSearchParams();
-
-  useEffect(() => {
-    if (!mapRef.current) {
-      const L = window.L;
-      if (!L) return;
-      
-      const map = L.map('leaflet-map').setView([34.6901, 135.1955], 11);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-      
-      mapRef.current = map;
-    }
-    
-    const map = mapRef.current;
-    const L = window.L;
-
-    // Clear existing markers
-    markersRef.current.forEach(m => map.removeLayer(m));
-    markersRef.current = [];
-
-    // Add user location marker
-    if (userLocation) {
-        const userMarker = L.circleMarker([userLocation.lat, userLocation.lng], {
-            radius: 8,
-            color: '#0e6b2a',
-            fillColor: '#0e6b2a',
-            fillOpacity: 0.4
-        }).bindPopup("現在地").addTo(map);
-        markersRef.current.push(userMarker);
-    }
-
-    // Add event markers
-    events.forEach(e => {
-        const priceText = e.priceYen === 0 ? "無料" : `${e.priceYen}円`;
-        const marker = L.marker([e.lat, e.lng]).addTo(map);
-        
-        const popupContent = document.createElement('div');
-        popupContent.innerHTML = `
-            <div style="font-family: sans-serif; min-width: 200px;">
-                ${e.imageUrl ? `<div style="height:100px; width:100%; background-image:url('${e.imageUrl}'); background-size:cover; background-position:center; border-radius:4px; margin-bottom:8px;"></div>` : ''}
-                <h3 style="font-weight:bold; margin-bottom:4px; color:#0e6b2a; font-size:14px;">${e.title}</h3>
-                <p style="font-size:11px; margin:0; color:#555;">${e.date} ${e.startTime ? `/ ${e.startTime}~` : ''}</p>
-                <p style="font-size:11px; margin:0; margin-bottom: 8px; color:#555;">${e.city} (${e.area}) - <b>${priceText}</b></p>
-                <div style="display:flex; gap:4px;">
-                    <button id="popup-detail-${e.id}" style="
-                        background-color: #f3e6d2; 
-                        border: 1px solid #ccc; 
-                        padding: 6px 12px; 
-                        border-radius: 4px; 
-                        font-size: 11px; 
-                        cursor: pointer;
-                        flex: 1;
-                    ">
-                    詳細
-                    </button>
-                    <button id="popup-save-${e.id}" style="
-                        background-color: #0e6b2a; 
-                        color: white;
-                        border: none; 
-                        padding: 6px 12px; 
-                        border-radius: 4px; 
-                        font-size: 11px; 
-                        cursor: pointer;
-                        flex: 1;
-                    ">
-                    保存
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        marker.bindPopup(popupContent);
-        marker.on('popupopen', () => {
-            const btnSave = document.getElementById(`popup-save-${e.id}`);
-            const btnDetail = document.getElementById(`popup-detail-${e.id}`);
-            if(btnSave) {
-                btnSave.onclick = () => onSave(e.id);
-            }
-            if(btnDetail) {
-                btnDetail.onclick = () => {
-                    setSearchParams(prev => {
-                        const next = new URLSearchParams(prev);
-                        next.set('event_id', String(e.id));
-                        return next;
-                    });
-                };
-            }
-        });
-
-        markersRef.current.push(marker);
-    });
-
-    // Fit bounds if we have events
-    if (events.length > 0) {
-       const group = new L.featureGroup(markersRef.current);
-       map.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 14 });
-    }
-
-  }, [events, userLocation, onSave, setSearchParams]);
-
-  return <div id="leaflet-map" className="h-full w-full bg-gray-100" />;
-};
-
 
 const SearchPage: React.FC = () => {
   const [filters, setFilters] = useState({
@@ -934,7 +920,7 @@ const SearchPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-4">
       <section className="bg-white/80 backdrop-blur-md border border-black/10 rounded-[18px] p-5 shadow-md">
         <h1 className="font-serif text-2xl mb-2 text-kakurega-ink">条件で絞って、地図で見つける。</h1>
         <p className="text-xs opacity-80 mb-4 leading-relaxed">
@@ -1092,7 +1078,7 @@ const SavedPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-6">
             <div className="mb-6">
                 <h1 className="font-serif text-2xl mb-1">保存したイベント</h1>
                 <p className="text-xs text-kakurega-muted">この端末のブラウザに保存されています。</p>
@@ -1154,7 +1140,7 @@ const SavedPage: React.FC = () => {
 };
 
 const AboutPage: React.FC = () => (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">
         <div className="text-center mb-8">
             <h1 className="font-serif text-2xl mb-2">企業について</h1>
             <p className="text-xs text-kakurega-muted">地域の小規模イベントの発見性向上を目指すプロトタイプです。</p>
