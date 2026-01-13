@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
-import { KakuregaEvent } from './types';
-=======
 import { KakuregaEvent } from '../types/types';
->>>>>>> Stashed changes
 
 // Helper to get random images from Unsplash (using specific IDs for stability/aesthetics)
 // Note: In a real app, these would be hosted images.
