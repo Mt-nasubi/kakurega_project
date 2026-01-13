@@ -1,5 +1,5 @@
 export interface KakuregaEvent {
-  id: number;
+  id: string;
   title: string;
   category: string;
   date: string;
