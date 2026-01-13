@@ -6,8 +6,8 @@ import {
   ChevronRight, Filter, Clock, Tag, ExternalLink, CalendarPlus,
   Share2, ArrowUp, Link as LinkIcon, Check
 } from 'lucide-react';
-import { EVENTS } from './constants';
-import { KakuregaEvent, UserLocation } from './types';
+import { EVENTS } from './constants/constants';
+import { KakuregaEvent, UserLocation } from './types/types';
 
 // --- Shared Components ---
 
