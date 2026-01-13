@@ -4,15 +4,76 @@ import {
   Menu, Home as HomeIcon, Search as SearchIcon, Star, 
   MapPin, User, Info, X, Calendar, ArrowRight, Trash2,
   ChevronRight, Filter, Clock, Tag, ExternalLink, CalendarPlus,
-<<<<<<< HEAD
-  Share2, ArrowUp, Link as LinkIcon, Check,
+  Share2, ArrowUp, Link as LinkIcon, Check, LogOut,
   Utensils, Landmark, Palette, Trees as TreePine, Music, Baby, ChevronDown, ChevronUp
-=======
-  Share2, ArrowUp, Link as LinkIcon, Check
->>>>>>> main
 } from 'lucide-react';
 import { EVENTS } from './constants';
 import { KakuregaEvent, UserLocation } from './types';
+
+// --- Auth Context & Provider ---
+
+interface UserData {
+  name: string;
+  email: string;
+}
+
+interface AuthContextType {
+  user: UserData | null;
+  login: (email: string, name: string) => void;
+  logout: () => void;
+  isLoginModalOpen: boolean;
+  openLoginModal: () => void;
+  closeLoginModal: () => void;
+}
+
+const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
+
+const useAuth = () => {
+  const context = React.useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
+  return context;
+};
+
+const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<UserData | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("kakurega_user");
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (e) {
+      console.error("Failed to load user", e);
+    }
+  }, []);
+
+  const login = (email: string, name: string) => {
+    const userData = { email, name };
+    setUser(userData);
+    localStorage.setItem("kakurega_user", JSON.stringify(userData));
+    setIsLoginModalOpen(false);
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("kakurega_user");
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      login,
+      logout,
+      isLoginModalOpen,
+      openLoginModal: () => setIsLoginModalOpen(true),
+      closeLoginModal: () => setIsLoginModalOpen(false)
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
 
 // --- Shared Components ---
 
@@ -131,6 +192,81 @@ const CopyLinkButton: React.FC<{ eventId: number, className?: string, children?:
     );
 };
 
+const LoginModal: React.FC = () => {
+    const { isLoginModalOpen, closeLoginModal, login } = useAuth();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+  
+    if (!isLoginModalOpen) return null;
+  
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      // Simulate API call
+      setTimeout(() => {
+          // Mock login logic: take the part before @ as the name
+          const name = email.split('@')[0] || 'ゲスト';
+          login(email, name);
+          setLoading(false);
+          setEmail("");
+          setPassword("");
+      }, 1000);
+    };
+  
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={closeLoginModal} />
+          <div className="bg-[#f8f1e3] w-full max-w-sm sm:max-w-md rounded-3xl shadow-2xl relative overflow-hidden flex flex-col animate-fade-in p-6 sm:p-8">
+              <button onClick={closeLoginModal} className="absolute top-4 right-4 text-kakurega-muted hover:text-kakurega-ink">
+                  <X size={24} />
+              </button>
+              <div className="text-center mb-6">
+                  <div className="w-12 h-12 bg-kakurega-green/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <User size={24} className="text-kakurega-green"/>
+                  </div>
+                  <h2 className="font-serif text-2xl font-bold text-kakurega-ink mb-2">ログイン</h2>
+                  <p className="text-xs text-kakurega-muted">隠れ家のアカウントでログインして、<br/>より便利にイベントを探しましょう。</p>
+              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                      <label className="block text-xs font-bold text-kakurega-muted mb-1.5 ml-1">メールアドレス</label>
+                      <input 
+                          type="email" 
+                          required 
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          className="w-full p-3 rounded-xl border border-black/10 bg-white focus:ring-2 focus:ring-kakurega-green/30 outline-none text-sm"
+                          placeholder="example@email.com"
+                      />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold text-kakurega-muted mb-1.5 ml-1">パスワード</label>
+                      <input 
+                          type="password" 
+                          required 
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          className="w-full p-3 rounded-xl border border-black/10 bg-white focus:ring-2 focus:ring-kakurega-green/30 outline-none text-sm"
+                          placeholder="••••••••"
+                      />
+                  </div>
+                  <button 
+                      type="submit" 
+                      disabled={loading}
+                      className="w-full py-3.5 bg-kakurega-green text-white rounded-xl font-bold shadow-lg hover:bg-kakurega-dark-green transition-all mt-6 disabled:opacity-70 flex justify-center items-center text-sm"
+                  >
+                      {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'ログイン'}
+                  </button>
+              </form>
+              <div className="mt-6 text-center border-t border-black/5 pt-4">
+                  <p className="text-xs text-kakurega-muted mb-2">アカウントをお持ちでない方</p>
+                  <button type="button" className="text-kakurega-green font-bold text-sm hover:underline">新規登録（無料）</button>
+              </div>
+          </div>
+      </div>
+    );
+  }
 
 const EventDetailModal: React.FC<{ eventId: string, onClose: () => void }> = ({ eventId, onClose }) => {
     const event = useMemo(() => EVENTS.find(e => e.id === Number(eventId)), [eventId]);
@@ -297,6 +433,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const detailId = searchParams.get('event_id');
+  const { user, openLoginModal, logout } = useAuth();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const closeDetail = () => {
     const newParams = new URLSearchParams(searchParams);
@@ -315,6 +453,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <div className="min-h-screen bg-kakurega-paper bg-wafu-pattern text-kakurega-ink relative flex flex-col">
       {/* Event Detail Modal (Global) */}
       {detailId && <EventDetailModal eventId={detailId} onClose={closeDetail} />}
+
+      {/* Login Modal */}
+      <LoginModal />
 
       {/* Header */}
       <header className="h-[1.5cm] flex items-center justify-between px-4 bg-gradient-to-b from-kakurega-green to-kakurega-dark-green border-b border-black/10 fixed top-0 w-full z-50 shadow-md">
@@ -338,12 +479,44 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </Link>
         </div>
 
-        <button className="flex flex-col items-center justify-center text-white space-y-[2px]" aria-label="ログイン">
-          <div className="w-[26px] h-[26px] bg-white/20 rounded-full flex items-center justify-center border border-white/40">
-            <User size={16} className="text-white" />
-          </div>
-          <span className="text-[10px] opacity-90">ログイン</span>
-        </button>
+        {user ? (
+            <div className="relative">
+                <button 
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="flex flex-col items-center justify-center text-white space-y-[2px]"
+                >
+                    <div className="w-[26px] h-[26px] bg-[#f8f1e3] text-kakurega-green rounded-full flex items-center justify-center border-2 border-white/40 font-bold text-xs shadow-inner">
+                        {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-[10px] opacity-90 max-w-[60px] truncate">{user.name}</span>
+                </button>
+                {isDropdownOpen && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)}></div>
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-black/5 z-50 overflow-hidden animate-fade-in">
+                            <div className="p-3 border-b border-black/5 bg-gray-50">
+                                <p className="text-[10px] text-kakurega-muted font-bold">ログイン中</p>
+                                <p className="text-sm font-bold truncate text-kakurega-ink">{user.email}</p>
+                            </div>
+                            <button onClick={() => { logout(); setIsDropdownOpen(false); }} className="w-full text-left p-3 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 font-medium">
+                                 <LogOut size={16} /> ログアウト
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        ) : (
+            <button 
+                onClick={openLoginModal}
+                className="flex flex-col items-center justify-center text-white space-y-[2px]" 
+                aria-label="ログイン"
+            >
+                <div className="w-[26px] h-[26px] bg-white/20 rounded-full flex items-center justify-center border border-white/40 transition-colors hover:bg-white/30">
+                    <User size={16} className="text-white" />
+                </div>
+                <span className="text-[10px] opacity-90">ログイン</span>
+            </button>
+        )}
       </header>
 
       {/* Sidebar (Desktop) */}
@@ -440,11 +613,7 @@ const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
     return (
         <div 
             onClick={openDetail}
-<<<<<<< HEAD
             className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 border border-black/5 cursor-pointer flex flex-col h-full relative"
-=======
-            className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-black/5 cursor-pointer flex flex-col h-full relative"
->>>>>>> main
         >
             {/* Image Area */}
             <div className="relative h-48 overflow-hidden">
@@ -728,7 +897,6 @@ const HomePage: React.FC = () => {
   const [randomPicks, setRandomPicks] = useState<KakuregaEvent[]>([]);
 
   useEffect(() => {
-<<<<<<< HEAD
     // Randomly select 6 events for a better grid display
     const shuffled = [...EVENTS].sort(() => 0.5 - Math.random());
     setRandomPicks(shuffled.slice(0, 6));
@@ -797,62 +965,12 @@ const HomePage: React.FC = () => {
                     イベントを探しに行く
                 </Link>
              </div>
-=======
-    // Randomly select 3 events
-    const shuffled = [...EVENTS].sort(() => 0.5 - Math.random());
-    setRandomPicks(shuffled.slice(0, 3));
-  }, []);
-
-  return (
-    <div className="pb-10">
-      <HeroSection />
-
-      <div className="max-w-5xl mx-auto px-4 md:px-6 space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-            { title: '探しやすさ', desc: 'キーワード入力不要。直感的な選択で、迷わず目的のイベントへ。' },
-            { title: '生活圏ファースト', desc: '行政区切りではなく「行ける距離」で。隣町の魅力も発見できます。' },
-            { title: '保存して計画', desc: '気になったらワンタップで保存。週末の予定作りをスムーズに。' },
-            ].map((item, i) => (
-            <Card key={i} className="hover:bg-white transition-colors">
-                <h2 className="text-sm font-bold mb-2 text-kakurega-green font-serif">{item.title}</h2>
-                <p className="text-xs leading-relaxed opacity-70">{item.desc}</p>
-            </Card>
-            ))}
-        </div>
-
-        <section>
-            <div className="flex justify-between items-end mb-6 px-1">
-            <div>
-                <h2 className="font-serif text-2xl text-kakurega-ink font-bold mb-1">おすすめのイベント</h2>
-                <p className="text-xs text-kakurega-muted">あなたの街の近くで見つかる、特別な体験</p>
-            </div>
-            <Link to="/search" className="text-xs font-bold text-kakurega-green hover:text-kakurega-dark-green flex items-center gap-1 group">
-                すべて見る <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-            </Link>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {randomPicks.map(e => (
-                <RichEventCard key={e.id} event={e} />
-            ))}
-            </div>
-            
-            <div className="mt-10 text-center">
-                <p className="text-xs text-kakurega-muted mb-4">条件を指定して、もっと探してみませんか？</p>
-                <Link to="/search" className="inline-flex items-center gap-2 px-8 py-3 bg-white text-kakurega-green border-2 border-kakurega-green rounded-xl text-sm font-bold shadow-sm hover:bg-kakurega-green hover:text-white transition-colors">
-                    <Filter size={16} />
-                    詳細検索ページへ
-                </Link>
-            </div>
->>>>>>> main
         </section>
       </div>
     </div>
   );
 };
 
-<<<<<<< HEAD
 const INTEREST_FIELDS = [
     { id: 'food', label: 'グルメ・酒', icon: Utensils, keywords: ['グルメ', 'パン', '酒', '甘酒', '野菜', 'ランチ', '海鮮'] },
     { id: 'culture', label: '歴史・文化', icon: Landmark, keywords: ['歴史', '伝統', '骨董', 'レトロ', '建築', '寺', '縁日'] },
@@ -865,10 +983,6 @@ const INTEREST_FIELDS = [
 const SearchPage: React.FC = () => {
   const [filters, setFilters] = useState({
     interest: '',
-=======
-const SearchPage: React.FC = () => {
-  const [filters, setFilters] = useState({
->>>>>>> main
     type: '',
     budget: '',
     period: '',
@@ -881,10 +995,7 @@ const SearchPage: React.FC = () => {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locStatus, setLocStatus] = useState('');
   const [filteredEvents, setFilteredEvents] = useState<KakuregaEvent[]>(EVENTS);
-<<<<<<< HEAD
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-=======
->>>>>>> main
   const [, setSearchParams] = useSearchParams();
 
   // Load Saved IDs
@@ -951,7 +1062,6 @@ const SearchPage: React.FC = () => {
   const applyFilters = () => {
     let result = [...EVENTS];
 
-<<<<<<< HEAD
     // Interest/Field Filter logic
     if (filters.interest) {
         const field = INTEREST_FIELDS.find(f => f.id === filters.interest);
@@ -963,8 +1073,6 @@ const SearchPage: React.FC = () => {
         }
     }
 
-=======
->>>>>>> main
     if (filters.type) result = result.filter(e => e.category === filters.type);
     if (filters.budget) result = result.filter(e => e.priceYen <= Number(filters.budget));
     
@@ -1034,7 +1142,6 @@ const SearchPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-4">
-<<<<<<< HEAD
       <section className="bg-white/90 backdrop-blur-md border border-black/10 rounded-[24px] p-6 shadow-xl animate-fade-in relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-kakurega-green/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl pointer-events-none"></div>
         
@@ -1186,104 +1293,29 @@ const SearchPage: React.FC = () => {
                     <SearchIcon size={16} /> この条件で検索
                 </button>
             </div>
-=======
-      <section className="bg-white/80 backdrop-blur-md border border-black/10 rounded-[18px] p-5 shadow-md">
-        <h1 className="font-serif text-2xl mb-2 text-kakurega-ink">条件で絞って、地図で見つける。</h1>
-        <p className="text-xs opacity-80 mb-4 leading-relaxed">
-            タイプ・予算・期間・距離・地区で整理して、近くの小さなイベントを見つけます。
-        </p>
-        
-        <div className="flex flex-wrap items-end gap-3 mb-3">
-            {[
-                { label: 'タイプ', key: 'type', options: [{v:'', l:'全て'}, {v:'祭り', l:'祭り'}, {v:'朝市', l:'朝市'}, {v:'体験', l:'体験'}, {v:'展示', l:'展示'}] },
-                { label: '予算', key: 'budget', options: [{v:'', l:'指定なし'}, {v:'0', l:'無料'}, {v:'1000', l:'~1000円'}, {v:'3000', l:'~3000円'}, {v:'5000', l:'~5000円'}] },
-                { label: '期間', key: 'period', options: [{v:'', l:'指定なし'}, {v:'today', l:'今日'}, {v:'week', l:'今週'}, {v:'month', l:'今月'}, {v:'year', l:'今年'}, {v:'range', l:'日付指定'}] },
-                { label: '距離', key: 'distance', options: [{v:'', l:'指定なし'}, {v:'10', l:'車で30分 (10km)'}, {v:'20', l:'車で60分 (20km)'}, {v:'40', l:'車で90分 (40km)'}] },
-                { label: '地区', key: 'area', options: [{v:'', l:'指定なし'}, {v:'神戸', l:'神戸'}, {v:'阪神', l:'阪神'}, {v:'播磨', l:'播磨'}, {v:'丹波', l:'丹波'}, {v:'但馬', l:'但馬'}, {v:'淡路', l:'淡路'}] },
-            ].map(f => (
-                <label key={f.key} className="flex flex-col gap-1.5 min-w-[140px] flex-1">
-                    <span className="text-[10px] text-kakurega-muted font-bold">{f.label}</span>
-                    <select 
-                        className="p-2.5 rounded-xl border border-black/20 bg-white text-xs focus:ring-2 focus:ring-kakurega-green/30 outline-none"
-                        value={(filters as any)[f.key]}
-                        onChange={e => handleChange(f.key, e.target.value)}
-                    >
-                        {f.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                    </select>
-                </label>
-            ))}
-
-            <label className="flex flex-col gap-1.5 min-w-[140px] flex-1">
-                 <span className="text-[10px] text-kakurega-muted font-bold">市</span>
-                 <input 
-                    type="text" 
-                    placeholder="例: 明石 / 姫路"
-                    className="p-2.5 rounded-xl border border-black/20 bg-white text-xs focus:ring-2 focus:ring-kakurega-green/30 outline-none"
-                    value={filters.city}
-                    onChange={e => handleChange('city', e.target.value)}
-                 />
-            </label>
-        </div>
-
-        {filters.period === 'range' && (
-            <div className="flex items-end gap-2 mb-4 animate-fade-in bg-kakurega-paper/50 p-3 rounded-xl">
-                 <label className="flex flex-col gap-1 flex-1">
-                    <span className="text-[10px] text-kakurega-muted">開始</span>
-                    <input type="date" className="p-2 rounded-lg border border-black/10 text-xs" value={filters.dateFrom} onChange={e => handleChange('dateFrom', e.target.value)} />
-                 </label>
-                 <span className="pb-2 text-xs opacity-50">〜</span>
-                 <label className="flex flex-col gap-1 flex-1">
-                    <span className="text-[10px] text-kakurega-muted">終了</span>
-                    <input type="date" className="p-2 rounded-lg border border-black/10 text-xs" value={filters.dateTo} onChange={e => handleChange('dateTo', e.target.value)} />
-                 </label>
-            </div>
-        )}
-
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-t border-black/5 pt-4">
-             <p className="text-xs text-kakurega-green h-4">{locStatus}</p>
-             <button 
-                onClick={applyFilters}
-                className="w-full md:w-auto px-6 py-3 bg-kakurega-green text-white rounded-xl text-xs font-bold shadow hover:bg-kakurega-dark-green transition-colors flex items-center justify-center gap-2"
-             >
-                <Filter size={14} /> 検索条件を適用
-             </button>
->>>>>>> main
         </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-<<<<<<< HEAD
            <div className="bg-white rounded-[24px] border border-black/10 overflow-hidden shadow-lg h-[450px] md:h-[600px] relative z-0">
-=======
-           <div className="bg-white rounded-[18px] border border-black/10 overflow-hidden shadow-lg h-[400px] md:h-[500px] relative z-0">
->>>>>>> main
               <MapViewer events={filteredEvents} userLocation={userLocation} onSave={handleSave} />
            </div>
         </div>
         
-<<<<<<< HEAD
         <div className="bg-white/80 backdrop-blur border border-black/10 rounded-[24px] p-5 shadow-md flex flex-col h-[600px]">
            <div className="flex justify-between items-baseline mb-4 pb-2 border-b border-black/5">
-=======
-        <div className="bg-white/80 backdrop-blur border border-black/10 rounded-[18px] p-4 shadow-md flex flex-col h-[500px]">
-           <div className="flex justify-between items-baseline mb-3 pb-2 border-b border-black/5">
->>>>>>> main
               <h2 className="font-serif text-lg text-kakurega-ink">検索結果</h2>
               <span className="text-xs text-kakurega-muted font-bold">{filteredEvents.length}件</span>
            </div>
            
            <div className="overflow-y-auto flex-1 pr-1 space-y-3 custom-scrollbar">
               {filteredEvents.length === 0 ? (
-<<<<<<< HEAD
                   <div className="flex flex-col items-center justify-center h-full text-center opacity-60">
                       <SearchIcon size={32} className="mb-2 text-kakurega-muted/50"/>
                       <p className="text-sm font-bold">条件に合うイベントが<br/>見つかりませんでした。</p>
                       <p className="text-xs mt-2">条件を少し広げてみてください。</p>
                   </div>
-=======
-                  <div className="text-center py-10 opacity-60 text-sm">条件に合うイベントが<br/>見つかりませんでした。</div>
->>>>>>> main
               ) : (
                   filteredEvents.map(e => (
                     <div 
@@ -1291,7 +1323,6 @@ const SearchPage: React.FC = () => {
                         onClick={() => openDetail(e.id)}
                         className="bg-white border border-black/5 rounded-xl p-3 hover:border-kakurega-green/50 hover:shadow-md transition-all cursor-pointer group"
                     >
-<<<<<<< HEAD
                         <div className="flex gap-3">
                             {/* Thumbnail for list item */}
                             <div className="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-gray-100">
@@ -1318,15 +1349,6 @@ const SearchPage: React.FC = () => {
                         </div>
                         
                         <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-black/5 border-dashed">
-=======
-                        <div className="flex justify-between items-start mb-1">
-                            <h3 className="font-bold text-sm text-kakurega-ink group-hover:text-kakurega-green transition-colors">{e.title}</h3>
-                            <span className="text-[10px] bg-kakurega-paper px-1.5 py-0.5 rounded text-kakurega-dark-green whitespace-nowrap">{e.category}</span>
-                        </div>
-                        <p className="text-xs text-kakurega-muted mb-2">{e.date} / {e.city} <span className="text-kakurega-green font-bold ml-1">{e.priceYen === 0 ? '無料' : `¥${e.priceYen}`}</span> {e.distKm && <span className="text-[10px] ml-1 opacity-70">({e.distKm.toFixed(1)}km)</span>}</p>
-                        
-                        <div className="flex justify-end gap-2">
->>>>>>> main
                             <AddToCalendarButton 
                                 event={e} 
                                 className="text-[10px] px-2 py-1 rounded border border-black/10 hover:bg-gray-50 flex items-center gap-1 text-kakurega-muted hover:text-kakurega-green transition-colors"
@@ -1476,16 +1498,18 @@ const AboutPage: React.FC = () => (
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/saved" element={<SavedPage />} />
-          <Route path="/about" element={<AboutPage />} />
-        </Routes>
-      </Layout>
-    </HashRouter>
+    <AuthProvider>
+      <HashRouter>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/saved" element={<SavedPage />} />
+            <Route path="/about" element={<AboutPage />} />
+          </Routes>
+        </Layout>
+      </HashRouter>
+    </AuthProvider>
   );
 };
 
