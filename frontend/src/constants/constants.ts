@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { KakuregaEvent } from '../types/types';
+=======
+import { KakuregaEvent } from './types';
+>>>>>>> main
 
 // Helper to get random images from Unsplash (using specific IDs for stability/aesthetics)
 // Note: In a real app, these would be hosted images.
