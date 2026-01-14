@@ -1,14 +1,21 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { supabase } from "./lib/supabase";
-import { HashRouter, Routes, Route, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { 
-    Menu, Home as HomeIcon, Search as SearchIcon, Star, 
+import type { KakuregaEvent, UserLocation } from './types/types';
+import { HashRouter, Routes, Route, Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import {
+    Menu, Home as HomeIcon, Search as SearchIcon, Star,
     MapPin, User, Info, X, Calendar, ArrowRight, Trash2,
     Filter, Clock, Tag, CalendarPlus,
     ArrowUp, Link as LinkIcon, Check
 } from 'lucide-react';
-import { KakuregaEvent, UserLocation } from './types/types';
-import { EVENTS } from './constants/constants';
+
+import {
+    fetchPublicEvents,
+    fetchMyFavoriteIds,
+    addFavorite,
+    removeFavorite,
+    fetchMyFavoriteEvents,
+} from './lib/apiClient';
+
 
 // --- Shared Components ---
 
@@ -18,6 +25,8 @@ type ToastItem = {
     id: string;
     message: string;
     type: ToastType;
+    actionLabel?: string;
+    onAction?: () => void;
 };
 
 const ToastHost: React.FC<{ toast: ToastItem | null; onClose: () => void }> = ({ toast, onClose }) => {
@@ -54,13 +63,27 @@ const ToastHost: React.FC<{ toast: ToastItem | null; onClose: () => void }> = ({
                         </p>
                     </div>
 
-                    <button
-                        onClick={onClose}
-                        className="text-kakurega-muted hover:text-kakurega-ink transition-colors"
-                        aria-label="閉じる"
-                    >
-                        <X size={16} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {toast.actionLabel && toast.onAction && (
+                            <button
+                                onClick={() => {
+                                    toast.onAction?.();
+                                    onClose();
+                                }}
+                                className="px-3 py-1.5 rounded-full text-xs font-bold bg-kakurega-green text-white hover:bg-kakurega-dark-green transition-colors"
+                            >
+                                {toast.actionLabel}
+                            </button>
+                        )}
+
+                        <button
+                            onClick={onClose}
+                            className="text-kakurega-muted hover:text-kakurega-ink transition-colors"
+                            aria-label="閉じる"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -163,54 +186,103 @@ const CopyLinkButton: React.FC<{ eventId: string, className?: string, children?:
             className={className || "bg-black/20 hover:bg-black/40 text-white p-2 rounded-full backdrop-blur-md transition-colors z-10"}
             title="リンクをコピー"
         >
-            {typeof children === 'function' ? children(copied) : children}
-
-            {!children && (
-                className ? (
-                    <span className="flex items-center gap-1.5">
-                        {copied ? <Check size={14} /> : <LinkIcon size={14} />}
-                        {copied ? 'コピー完了' : 'リンク'}
-                    </span>
-                ) : (
-                    copied ? <Check size={24} className="text-kakurega-green" /> : <LinkIcon size={24} />
-                )
-            )}
+            {typeof children === "function"
+                ? children(copied)
+                : children
+                    ? children
+                    : (className
+                        ? (
+                            <span className="flex items-center gap-1.5">
+                                {copied ? <Check size={14} /> : <LinkIcon size={14} />}
+                                {copied ? "コピー完了" : "リンク"}
+                            </span>
+                        )
+                        : (copied ? <Check size={24} className="text-kakurega-green" /> : <LinkIcon size={24} />)
+                    )
+            }
         </button>
     );
 };
 
-const EventDetailModal: React.FC<{ eventId: string, onClose: () => void }> = ({ eventId, onClose }) => {
-    const event = useMemo(() => EVENTS.find(e => e.id === eventId), [eventId]);
+const EventDetailModal: React.FC<{
+    eventId: string;
+    onClose: () => void;
+    events: any[];
+    favIds: Set<string>;
+    setFavIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+}> = ({ eventId, onClose, events, favIds, setFavIds }) => {
+    const event = useMemo(
+        () => events.find(e => String(e.id) === String(eventId)),
+        [events, eventId]
+    );
 
     useEffect(() => {
         document.body.style.overflow = 'hidden';
         return () => { document.body.style.overflow = 'auto'; };
     }, []);
 
-    const [isSaved, setIsSaved] = useState(false);
-    useEffect(() => {
-        try {
-            const raw = localStorage.getItem("savedEventIds");
-            const ids: string[] = raw ? JSON.parse(raw) : [];
-            setIsSaved(ids.includes(eventId));
-        } catch {}
-    }, [eventId]);
+    const isSaved = favIds.has(String(eventId));
+    const { pushToast } = useToast();
+    const navigate = useNavigate();
+    const location = useLocation();
 
-    const toggleSave = () => {
+    const toggleSave = async () => {
+        const id = String(eventId);
+        const isFav = favIds.has(id);
+
         try {
-            const raw = localStorage.getItem("savedEventIds");
-            const ids: string[] = raw ? JSON.parse(raw) : [];
-            let newIds: string[];
-            if (ids.includes(eventId)) {
-                newIds = ids.filter(i => i !== eventId);
-                setIsSaved(false);
+            if (isFav) {
+                const ok = await removeFavorite(id);
+                if (!ok) {
+                    pushToast?.(
+                        "お気に入りにはログインが必要です",
+                        "info",
+                        {
+                            label: "ログインする",
+                            onClick: () => {
+                                const next = `${location.pathname}${location.search}`;
+                                navigate(`/login?next=${encodeURIComponent(next)}`);
+                            }
+                        }
+                    );
+                    return
+                }
+
+                setFavIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                });
+                pushToast?.("お気に入りから削除しました", "info");
             } else {
-                newIds = [...ids, eventId];
-                setIsSaved(true);
+                const ok = await addFavorite(id);
+                if (!ok) {
+                    pushToast?.(
+                        "お気に入りにはログインが必要です",
+                        "info",
+                        {
+                            label: "ログインする",
+                            onClick: () => {
+                                const next = `${location.pathname}${location.search}`;
+                                navigate(`/login?next=${encodeURIComponent(next)}`);
+                            }
+                        }
+                    );
+                    return;
+                }
+
+                setFavIds(prev => {
+                    const next = new Set(prev);
+                    next.add(id);
+                    return next;
+                });
+                pushToast?.("保存しました", "success");
             }
-            localStorage.setItem("savedEventIds", JSON.stringify(newIds));
-        } catch {}
+        } catch {
+            pushToast?.("保存に失敗しました", "error");
+        }
     };
+
 
     if (!event) return null;
 
@@ -338,7 +410,11 @@ const EventDetailModal: React.FC<{ eventId: string, onClose: () => void }> = ({ 
 };
 
 type ToastContextType = {
-    pushToast: (message: string, type?: ToastType) => void;
+    pushToast: (
+        message: string,
+        type?: ToastType,
+        action?: { label: string; onClick: () => void }
+    ) => void;
 };
 
 const ToastContext = React.createContext<ToastContextType | null>(null);
@@ -350,37 +426,56 @@ export const useToast = () => {
 };
 
 
-const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const Layout: React.FC<{
+    children: React.ReactNode;
+    events: any[];
+    favIds: Set<string>;
+    setFavIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+    eventsLoading: boolean;
+}> = ({ children, events, favIds, setFavIds, eventsLoading }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const location = useLocation();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const detailId = searchParams.get('event_id');
 
     const [toast, setToast] = useState<ToastItem | null>(null);
     const toastTimerRef = useRef<number | null>(null);
 
-    const pushToast = (message: string, type: ToastType = "info") => {
-        // 既存タイマーを止める（＝延長/上書きの準備）
+    const pushToast = (
+        message: string,
+        type: ToastType = "info",
+        action?: { label: string; onClick: () => void }
+    ) => {
         if (toastTimerRef.current !== null) {
             window.clearTimeout(toastTimerRef.current);
             toastTimerRef.current = null;
         }
 
-        // 同じ文言 + 同じtypeなら「idを変えずに」タイマーだけ延長
         setToast(prev => {
+            // 同じメッセージ&type なら上書きしない（タイマー延長だけ）
             if (prev && prev.message === message && prev.type === type) {
-                return prev; // ここが肝：同一要素扱い＝アニメ出し直さない
+                return {
+                    ...prev,
+                    actionLabel: action?.label,
+                    onAction: action?.onClick,
+                };
             }
 
             const id = `${Date.now()}_${Math.random().toString(16).slice(2)}`;
-            return { id, message, type };
+            return {
+                id,
+                message,
+                type,
+                actionLabel: action?.label,
+                onAction: action?.onClick,
+            };
         });
 
-        // 表示時間をリセット（延長）
         toastTimerRef.current = window.setTimeout(() => {
             setToast(null);
             toastTimerRef.current = null;
-        }, 2000);
+        }, 4000);
     };
 
     const closeToast = () => {
@@ -407,7 +502,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return (
         <ToastContext.Provider value={{ pushToast }}>
             <div className="min-h-screen bg-kakurega-paper bg-wafu-pattern text-kakurega-ink relative flex flex-col">
-                {detailId && <EventDetailModal eventId={detailId} onClose={closeDetail} />}
+                {detailId && (
+                    <EventDetailModal
+                        eventId={detailId}
+                        onClose={closeDetail}
+                        events={events}
+                        favIds={favIds}
+                        setFavIds={setFavIds}
+                    />
+                )}
 
                 {/* Header */}
                 <header className="h-[1.5cm] flex items-center justify-between px-4 bg-gradient-to-b from-kakurega-green to-kakurega-dark-green border-b border-black/10 fixed top-0 w-full z-50 shadow-md">
@@ -431,12 +534,20 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                         </Link>
                     </div>
 
-                    <button className="flex flex-col items-center justify-center text-white space-y-[2px]" aria-label="ログイン">
+                    <button
+                        onClick={() => {
+                            const next = `${location.pathname}${location.search}`;
+                            navigate(`/login?next=${encodeURIComponent(next)}`);
+                        }}
+                        className="flex flex-col items-center justify-center text-white space-y-[2px]"
+                        aria-label="ログイン"
+                    >
                         <div className="w-[26px] h-[26px] bg-white/20 rounded-full flex items-center justify-center border border-white/40">
                             <User size={16} className="text-white" />
                         </div>
                         <span className="text-[10px] opacity-90">ログイン</span>
                     </button>
+
                 </header>
 
                 {/* Toast (Global) */}
@@ -612,14 +723,14 @@ const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
     );
 };
 
-const HeroSection = () => {
+const HeroSection: React.FC<{ events: any[] }> = ({ events }) => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isLoaded, setIsLoaded] = useState(false);
 
     const images = useMemo(() => {
-        const unique = Array.from(new Set(EVENTS.map(e => e.imageUrl).filter(Boolean))) as string[];
+        const unique = Array.from(new Set(events.map(e => e.imageUrl).filter(Boolean))) as string[];
         return unique.slice(0, 5);
-    }, []);
+    }, [events]);
 
     useEffect(() => {
         setIsLoaded(true);
@@ -809,19 +920,68 @@ const MapViewer: React.FC<{ events: KakuregaEvent[], userLocation: UserLocation 
     return <div ref={mapRef} className="w-full h-full" />;
 };
 
-// --- Pages ---
+const toJstDate = (ts: string | null) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    // JST に補正
+    d.setHours(d.getHours() + 9);
+    return d.toISOString().slice(0, 10);
+};
 
-const HomePage: React.FC = () => {
+const toJstTime = (ts: string | null) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    d.setHours(d.getHours() + 9);
+    return d.toISOString().slice(11, 16);
+};
+
+const dbToUiEvent = (d: any) => {
+    const start = d.start_at ? new Date(d.start_at) : null;
+    const end = d.end_at ? new Date(d.end_at) : null;
+
+    const pad2 = (n: number) => String(n).padStart(2, "0");
+    const ymd = (dt: Date) => `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+    const hm = (dt: Date) => `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+
+    return {
+        id: String(d.id),
+        title: d.title ?? "",
+        description: d.description ?? "",
+        category: d.category ?? "",
+        city: d.city ?? "",
+        area: d.prefecture ?? "",
+
+        // UIが使ってる想定フィールド
+        date: start ? ymd(start) : "",
+        startTime: start ? hm(start) : "",
+        endTime: end ? hm(end) : "",
+
+        // DBに無いので暫定値
+        lat: 34.6937,
+        lng: 135.1955,
+        priceYen: 0,
+        organizer: "",
+        tags: [],
+        imageUrl: "",
+    };
+};
+
+
+
+
+// --- Pages ---
+const HomePage: React.FC<{ events: any[]; eventsLoading: boolean }> = ({ events, eventsLoading }) => {
     const [randomPicks, setRandomPicks] = useState<KakuregaEvent[]>([]);
 
     useEffect(() => {
-        const shuffled = [...EVENTS].sort(() => 0.5 - Math.random());
+        const shuffled = [...events].sort(() => 0.5 - Math.random());
         setRandomPicks(shuffled.slice(0, 3));
-    }, []);
+        console.log("events state updated", events.length, events);
+    }, [events]);
 
     return (
         <div className="pb-10">
-            <HeroSection />
+            <HeroSection events={events} />
 
             <div className="max-w-5xl mx-auto px-4 md:px-6 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -867,7 +1027,16 @@ const HomePage: React.FC = () => {
     );
 };
 
-const SearchPage: React.FC = () => { const { pushToast } = useToast();
+const SearchPage: React.FC<{
+    events: any[];
+    eventsLoading: boolean;
+    favIds: Set<string>;
+    setFavIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+}> = ({ events, eventsLoading, favIds, setFavIds }) => {
+    const { pushToast } = useToast();
+    const navigate = useNavigate();
+    const location = useLocation();
+
     const [filters, setFilters] = useState({
         type: '',
         budget: '',
@@ -878,9 +1047,10 @@ const SearchPage: React.FC = () => { const { pushToast } = useToast();
         area: '',
         city: ''
     });
+
     const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
     const [locStatus, setLocStatus] = useState('');
-    const [filteredEvents, setFilteredEvents] = useState<KakuregaEvent[]>(EVENTS);
+    const [filteredEvents, setFilteredEvents] = useState<KakuregaEvent[]>([]);
     const [, setSearchParams] = useSearchParams();
 
     const getSavedIds = (): string[] => {
@@ -901,20 +1071,41 @@ const SearchPage: React.FC = () => { const { pushToast } = useToast();
         }
     };
 
-    const handleSave = (id: string) => {
+    const handleSave = async (id: string) => {
         const sid = String(id);
-        const ids = getSavedIds().map(String);
 
-        if (!ids.includes(sid)) {
-            const newIds = [...ids, sid];
-            localStorage.setItem("savedEventIds", JSON.stringify(newIds));
-            pushToast?.("保存しました", "success");
-        } else {
+        if (favIds.has(sid)) {
             pushToast?.("すでに保存されています", "info");
+            return;
+        }
+
+        try {
+            const ok = await addFavorite(sid);
+            if (!ok) {
+                pushToast?.(
+                    "お気に入りにはログインが必要です",
+                    "info",
+                    {
+                        label: "ログインする",
+                        onClick: () => {
+                            const next = `${location.pathname}${location.search}`;
+                            navigate(`/login?next=${encodeURIComponent(next)}`);
+                        }
+                    }
+                );
+                return;
+            }
+
+            setFavIds(prev => {
+                const next = new Set(prev);
+                next.add(sid);
+                return next;
+            });
+            pushToast?.("保存しました", "success");
+        } catch {
+            pushToast?.("保存に失敗しました", "error");
         }
     };
-
-
 
 
     const openDetail = (id: string) => {
@@ -961,7 +1152,8 @@ const SearchPage: React.FC = () => { const { pushToast } = useToast();
     };
 
     const applyFilters = () => {
-        let result = [...EVENTS];
+        let result = [...events];
+        console.log("filtered before", result);
 
         if (filters.type) result = result.filter(e => e.category === filters.type);
         if (filters.budget) result = result.filter(e => e.priceYen <= Number(filters.budget));
@@ -1023,7 +1215,7 @@ const SearchPage: React.FC = () => { const { pushToast } = useToast();
         }
     }, [filters.distance]);
 
-    useEffect(() => { applyFilters(); }, []);
+    useEffect(() => { applyFilters(); }, [events]);
 
     const handleChange = (key: string, value: string) => {
         setFilters(prev => ({ ...prev, [key]: value }));
@@ -1164,34 +1356,43 @@ const SearchPage: React.FC = () => { const { pushToast } = useToast();
         </div>
     );
 };
-
-const SavedPage: React.FC = () => { const { pushToast } = useToast();
+const SavedPage: React.FC<{
+    favIds: Set<string>;
+    setFavIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+}> = ({ favIds, setFavIds }) => { const { pushToast } = useToast();
     const [savedEvents, setSavedEvents] = useState<KakuregaEvent[]>([]);
     const [, setSearchParams] = useSearchParams();
 
-    const loadSaved = () => {
+    useEffect(() => {
+        const run = async () => {
+            try {
+                const favEvents = await fetchMyFavoriteEvents();
+                // DbEvent -> KakuregaEvent 変換（Appと同じ変換ルールに合わせる）
+                const mapped = (favEvents ?? []).map(dbToUiEvent);
+                setSavedEvents(mapped);
+
+            } catch {
+                setSavedEvents([]);
+            }
+        };
+        run();
+    }, []);
+
+    const removeSaved = async (id: string) => {
+        const sid = String(id);
+        // 楽観的にUIから消す
+        setSavedEvents(prev => prev.filter(e => String(e.id) !== sid));
+        setFavIds(prev => {
+            const next = new Set(prev);
+            next.delete(sid);
+            return next;
+        });
         try {
-            const raw = localStorage.getItem("savedEventIds");
-            const ids = (raw ? JSON.parse(raw) : []).map(String) as string[];
-
-            const events = EVENTS.filter(e => ids.includes(String(e.id)));
-            setSavedEvents(events);
-        } catch {
-            setSavedEvents([]);
-        }
-    };
-
-    useEffect(() => { loadSaved(); }, []);
-
-    const removeSaved = (id: string) => {
-        try {
-            const raw = localStorage.getItem("savedEventIds");
-            const ids: string[] = raw ? JSON.parse(raw) : [];
-            const next = ids.map(String).filter(i => i !== String(id));
-            localStorage.setItem("savedEventIds", JSON.stringify(next));
-            loadSaved();
+            await removeFavorite(sid);
             pushToast?.("お気に入りから削除しました", "info");
-        } catch {}
+        } catch {
+            pushToast?.("削除に失敗しました", "error");
+        }
     };
 
 
@@ -1286,17 +1487,94 @@ const AboutPage: React.FC = () => (
     </div>
 );
 
+const LoginPage: React.FC = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const params = new URLSearchParams(location.search);
+    const next = params.get("next") || "/";
+
+    return (
+        <div className="max-w-xl mx-auto px-4 md:px-6 py-10 space-y-4">
+            <h1 className="font-serif text-2xl font-bold text-kakurega-ink">ログイン</h1>
+            <p className="text-sm text-kakurega-muted leading-relaxed">
+                ここにログイン機能を実装予定です（今は未実装）。
+            </p>
+
+            <div className="bg-white/80 border border-black/10 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs text-kakurega-muted mb-4">
+                    ログイン後は、元のページへ戻るようにします。
+                </p>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => navigate(next)}
+                        className="px-5 py-3 bg-kakurega-green text-white rounded-xl text-xs font-bold shadow hover:bg-kakurega-dark-green transition-colors"
+                    >
+                        戻る
+                    </button>
+                    <button
+                        onClick={() => navigate("/")}
+                        className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors"
+                    >
+                        ホームへ
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+
 // --- App Router ---
 
 const App: React.FC = () => {
+    const [events, setEvents] = useState<any[]>([]);
+    const [favIds, setFavIds] = useState<Set<string>>(new Set());
+    const [eventsLoading, setEventsLoading] = useState(true);
+    useEffect(() => {
+        const run = async () => {
+            setEventsLoading(true);
+
+            try {
+                const evs = await fetchPublicEvents();
+                console.log("public events raw", evs);
+                console.log("public events count", evs?.length ?? 0);
+
+                const mapped = (evs ?? []).map(dbToUiEvent);
+                console.log("public events mapped", mapped);
+                console.log("public events mapped count", mapped.length);
+                setEvents(mapped);
+            } catch (e) {
+                console.error("fetchPublicEvents failed", e);
+                setEvents([]);
+            }
+
+            try {
+                const fav = await fetchMyFavoriteIds();
+                setFavIds(fav);
+            } catch (e) {
+                console.error("fetchMyFavoriteIds failed", e);
+                setFavIds(new Set());
+            }
+
+            setEventsLoading(false);
+        };
+
+        run();
+    }, []);
+
+
+
     return (
         <HashRouter>
-            <Layout>
+            <Layout events={events} favIds={favIds} setFavIds={setFavIds} eventsLoading={eventsLoading}>
                 <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/search" element={<SearchPage />} />
-                    <Route path="/saved" element={<SavedPage />} />
+                    <Route path="/" element={<HomePage events={events} eventsLoading={eventsLoading} />} />
+                    <Route path="/search" element={<SearchPage events={events} eventsLoading={eventsLoading} favIds={favIds} setFavIds={setFavIds} />} />
+                    <Route path="/saved" element={<SavedPage favIds={favIds} setFavIds={setFavIds} />} />
                     <Route path="/about" element={<AboutPage />} />
+                    <Route path="/login" element={<LoginPage />} />
                 </Routes>
             </Layout>
         </HashRouter>
