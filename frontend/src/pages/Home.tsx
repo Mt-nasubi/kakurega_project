@@ -1,101 +1,82 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import type { DbEvent } from '../types/types';
-import { fetchPublicEvents, fetchMyFavoriteIds, addFavorite, removeFavorite } from '../lib/apiClient';
+import React, { useEffect, useState } from "react";
+import { ArrowRight, Filter } from "lucide-react";
+import { Link } from "react-router-dom";
 
-export default function Home() {
-    const [events, setEvents] = useState<DbEvent[]>([]);
-    const [favIds, setFavIds] = useState<Set<string>>(new Set());
-    const [loading, setLoading] = useState(true);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+import type { KakuregaEvent } from "../types/types";
+import Card from "../components/Card";
+import HeroSection from "../components/HeroSection";
+import RichEventCard from "../components/RichEventCard";
+
+const HomePage: React.FC<{ events: any[]; eventsLoading: boolean }> = ({ events }) => {
+    const [randomPicks, setRandomPicks] = useState<KakuregaEvent[]>([]);
 
     useEffect(() => {
-        const run = async () => {
-            try {
-                setLoading(true);
-                setErrorMsg(null);
-
-                const [evs, fav] = await Promise.all([
-                    fetchPublicEvents(),
-                    fetchMyFavoriteIds(),
-                ]);
-                
-                console.log("App DEBUG evs", evs);
-                console.log("App DEBUG evs length", evs?.length);
-
-                setEvents(evs);
-                setFavIds(fav);
-            } catch (e: any) {
-                setErrorMsg(e?.message ?? 'failed to fetch events');
-            } finally {
-                setLoading(false);
-            }
-        };
-        run();
-    }, []);
-
-    const toggleFav = async (eventId: string) => {
-        const isFav = favIds.has(eventId);
-
-        setFavIds((prev) => {
-            const next = new Set(prev);
-            if (isFav) next.delete(eventId);
-            else next.add(eventId);
-            return next;
-        });
-
-        try {
-            if (isFav) await removeFavorite(eventId);
-            else await addFavorite(eventId);
-        } catch {
-            // 失敗したら戻す
-            setFavIds((prev) => {
-                const next = new Set(prev);
-                if (isFav) next.add(eventId);
-                else next.delete(eventId);
-                return next;
-            });
-        }
-    };
-
-    if (loading) return <div>Loading...</div>;
-    if (errorMsg) return <div style={{ color: 'red' }}>{errorMsg}</div>;
+        const shuffled = [...events].sort(() => 0.5 - Math.random());
+        setRandomPicks(shuffled.slice(0, 3));
+        console.log("events state updated", events.length, events);
+    }, [events]);
 
     return (
-        <div style={{ padding: 16 }}>
-            <h1>Events</h1>
+        <div className="pb-10">
+            <HeroSection events={events} />
 
-            <div style={{ marginBottom: 12 }}>
-                <Link to="/favorites">お気に入りへ</Link>
-            </div>
+            <div className="max-w-5xl mx-auto px-4 md:px-6 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                        { title: "探しやすさ", desc: "キーワード入力不要。直感的な選択で、迷わず目的のイベントへ。" },
+                        { title: "生活圏ファースト", desc: "行政区切りではなく「行ける距離」で。隣町の魅力も発見できます。" },
+                        { title: "保存して計画", desc: "気になったらワンタップで保存。週末の予定作りをスムーズに。" },
+                    ].map((item, i) => (
+                        <Card key={i} className="hover:bg-white transition-colors">
+                            <h2 className="text-sm font-bold mb-2 text-kakurega-green font-serif">
+                                {item.title}
+                            </h2>
+                            <p className="text-xs leading-relaxed opacity-70">{item.desc}</p>
+                        </Card>
+                    ))}
+                </div>
 
-            {events.map((ev) => {
-                const isFav = favIds.has(ev.id);
-
-                return (
-                    <div key={ev.id} style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12, marginBottom: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                            <div>
-                                <div style={{ fontWeight: 700 }}>
-                                    <Link to={`/event?event_id=${ev.id}`}>
-                                        {ev.title ?? '(no title)'}
-                                    </Link>
-                                </div>
-                                <div style={{ fontSize: 12, opacity: 0.8 }}>
-                                    {ev.prefecture ?? ''} {ev.city ?? ''} / {ev.category ?? ''}
-                                </div>
-                                <div style={{ fontSize: 12, opacity: 0.8 }}>
-                                    {ev.start_at ?? ''}{ev.end_at ? ` 〜 ${ev.end_at}` : ''}
-                                </div>
-                            </div>
-
-                            <button onClick={() => toggleFav(ev.id)} style={{ fontSize: 18 }}>
-                                {isFav ? '★' : '☆'}
-                            </button>
+                <section>
+                    <div className="flex justify-between items-end mb-6 px-1">
+                        <div>
+                            <h2 className="font-serif text-2xl text-kakurega-ink font-bold mb-1">
+                                おすすめのイベント
+                            </h2>
+                            <p className="text-xs text-kakurega-muted">
+                                あなたの街の近くで見つかる、特別な体験
+                            </p>
                         </div>
+                        <Link
+                            to="/search"
+                            className="text-xs font-bold text-kakurega-green hover:text-kakurega-dark-green flex items-center gap-1 group"
+                        >
+                            すべて見る{" "}
+                            <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+                        </Link>
                     </div>
-                );
-            })}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                        {randomPicks.map((e) => (
+                            <RichEventCard key={e.id} event={e} />
+                        ))}
+                    </div>
+
+                    <div className="mt-10 text-center">
+                        <p className="text-xs text-kakurega-muted mb-4">
+                            条件を指定して、もっと探してみませんか？
+                        </p>
+                        <Link
+                            to="/search"
+                            className="inline-flex items-center gap-2 px-8 py-3 bg-white text-kakurega-green border-2 border-kakurega-green rounded-xl text-sm font-bold shadow-sm hover:bg-kakurega-green hover:text-white transition-colors"
+                        >
+                            <Filter size={16} />
+                            詳細検索ページへ
+                        </Link>
+                    </div>
+                </section>
+            </div>
         </div>
     );
-}
+};
+
+export default HomePage;

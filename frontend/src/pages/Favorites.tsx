@@ -1,55 +1,144 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import type { DbEvent } from '../types/types';
-import { fetchMyFavoriteEvents } from '../lib/apiClient';
+import React, { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowRight, Calendar, MapPin, Star, Trash2 } from "lucide-react";
 
-export default function Favorites() {
-    const [events, setEvents] = useState<DbEvent[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+import type { KakuregaEvent } from "../types/types";
+import { useToast } from "../context/toast";
+import { fetchMyFavoriteEvents, removeFavorite } from "../lib/apiClient";
+import { dbToUiEvent } from "../lib/eventMapping";
+import Card from "../components/Card";
+
+const SavedPage: React.FC<{
+    favIds: Set<string>;
+    setFavIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+}> = ({ favIds, setFavIds }) => {
+    const { pushToast } = useToast();
+    const [savedEvents, setSavedEvents] = useState<KakuregaEvent[]>([]);
+    const [, setSearchParams] = useSearchParams();
 
     useEffect(() => {
         const run = async () => {
             try {
-                setLoading(true);
-                setErrorMsg(null);
-
-                const data = await fetchMyFavoriteEvents();
-                setEvents(data);
-            } catch (e: any) {
-                setErrorMsg(e?.message ?? 'failed to fetch favorites');
-            } finally {
-                setLoading(false);
+                const favEvents = await fetchMyFavoriteEvents();
+                const mapped = (favEvents ?? []).map(dbToUiEvent);
+                setSavedEvents(mapped);
+            } catch {
+                setSavedEvents([]);
             }
         };
         run();
     }, []);
 
-    if (loading) return <div>Loading...</div>;
-    if (errorMsg) return <div style={{ color: 'red' }}>{errorMsg}</div>;
+    const removeSaved = async (id: string) => {
+        const sid = String(id);
+        setSavedEvents((prev) => prev.filter((e) => String(e.id) !== sid));
+        setFavIds((prev) => {
+            const next = new Set(prev);
+            next.delete(sid);
+            return next;
+        });
+
+        try {
+            await removeFavorite(sid);
+            pushToast("お気に入りから削除しました", "info");
+        } catch {
+            pushToast("削除に失敗しました", "error");
+        }
+    };
+
+    const openDetail = (id: string) => {
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set("event_id", id);
+            return next;
+        });
+    };
 
     return (
-        <div style={{ padding: 16 }}>
-            <div style={{ marginBottom: 12 }}>
-                <Link to="/">← 一覧へ</Link>
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 space-y-6">
+            <div className="mb-6">
+                <h1 className="font-serif text-2xl mb-1">保存したイベント</h1>
+                <p className="text-xs text-kakurega-muted">この端末のブラウザに保存されています。</p>
             </div>
 
-            <h1>Favorites</h1>
-
-            {events.length === 0 && <div>お気に入りはまだありません</div>}
-
-            {events.map((ev) => (
-                <div key={ev.id} style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12, marginBottom: 10 }}>
-                    <div style={{ fontWeight: 700 }}>
-                        <Link to={`/event?event_id=${ev.id}`}>
-                            {ev.title ?? '(no title)'}
-                        </Link>
-                    </div>
-                    <div style={{ fontSize: 12, opacity: 0.8 }}>
-                        {ev.prefecture ?? ''} {ev.city ?? ''} / {ev.category ?? ''}
-                    </div>
+            {savedEvents.length === 0 ? (
+                <div className="text-center py-20 bg-white/50 rounded-2xl border border-dashed border-black/20">
+                    <Star size={48} className="mx-auto text-kakurega-muted/30 mb-4" />
+                    <p className="text-sm text-kakurega-muted mb-4">まだ保存されたイベントはありません。</p>
+                    <Link
+                        to="/search"
+                        className="inline-block px-6 py-2 bg-kakurega-green text-white rounded-xl text-xs font-bold hover:bg-kakurega-dark-green transition-colors"
+                    >
+                        イベントを探しに行く
+                    </Link>
                 </div>
-            ))}
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {savedEvents.map((e) => (
+                        <Card
+                            key={e.id}
+                            className="relative group p-0 overflow-hidden flex flex-col cursor-pointer"
+                            onClick={() => openDetail(String(e.id))}
+                        >
+                            {e.imageUrl && (
+                                <div className="h-32 w-full overflow-hidden relative">
+                                    <img
+                                        src={e.imageUrl}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                        alt={e.title}
+                                    />
+                                    <div className="absolute inset-0 bg-black/10"></div>
+                                </div>
+                            )}
+
+                            <div className="p-4 flex-1 flex flex-col">
+                                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <button
+                                        onClick={(ev) => {
+                                            ev.stopPropagation();
+                                            removeSaved(String(e.id));
+                                        }}
+                                        className="p-2 bg-white/90 text-red-500 rounded-full hover:bg-white shadow-sm transition-all"
+                                        title="削除"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+
+                                <h3 className="font-serif font-bold text-lg mb-2 text-kakurega-ink pr-8">
+                                    {e.title}
+                                </h3>
+
+                                <div className="space-y-1 mb-4">
+                                    <div className="flex items-center gap-2 text-xs text-kakurega-muted">
+                                        <Calendar size={12} />
+                                        <span>{e.date}</span>
+                                        <span className="w-px h-3 bg-black/20"></span>
+                                        <span>{e.category}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-kakurega-muted">
+                                        <MapPin size={12} />
+                                        <span>
+                                            {e.city}（{e.area}）
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center mt-auto pt-3 border-t border-black/5">
+                                    <span className="font-bold text-kakurega-green text-sm">
+                                        {e.priceYen === 0 ? "無料" : `¥${e.priceYen.toLocaleString()}`}
+                                    </span>
+                                    <span className="text-[10px] text-kakurega-muted hover:text-kakurega-green flex items-center gap-1">
+                                        詳細を見る <ArrowRight size={10} />
+                                    </span>
+                                </div>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
         </div>
     );
-}
+};
+
+export default SavedPage;
