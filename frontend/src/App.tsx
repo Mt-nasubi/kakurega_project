@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { KakuregaEvent, UserLocation } from './types/types';
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
