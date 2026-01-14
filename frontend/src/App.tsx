@@ -7,7 +7,7 @@ import {
     Filter, Clock, Tag, CalendarPlus,
     ArrowUp, Link as LinkIcon, Check
 } from 'lucide-react';
-
+import { supabase } from "./lib/supabase";
 import {
     fetchPublicEvents,
     fetchMyFavoriteIds,
@@ -728,7 +728,7 @@ const HeroSection: React.FC<{ events: any[] }> = ({ events }) => {
     const [isLoaded, setIsLoaded] = useState(false);
 
     const images = useMemo(() => {
-        const unique = Array.from(new Set(events.map(e => e.imageUrl).filter(Boolean))) as string[];
+        const unique = Array.from(new Set(events.map(e => coverImageUrl(e)))) as string[];
         return unique.slice(0, 5);
     }, [events]);
 
@@ -891,7 +891,7 @@ const MapViewer: React.FC<{ events: KakuregaEvent[], userLocation: UserLocation 
             const content = document.createElement('div');
             content.innerHTML = `
                 <div style="width:200px;">
-                    <div style="height:100px;background:url('${e.imageUrl}') center/cover;border-radius:8px 8px 0 0;"></div>
+                    <div style="height:100px;background:url('${coverImageUrl(e)}') center/cover;border-radius:8px 8px 0 0;"></div>
                     <div style="padding:8px;">
                         <div style="font-size:10px;color:#0e6b2a;font-weight:bold;">${e.category}</div>
                         <div style="font-weight:bold;font-size:13px;margin:2px 0;">${e.title}</div>
@@ -935,13 +935,24 @@ const toJstTime = (ts: string | null) => {
     return d.toISOString().slice(11, 16);
 };
 
-const dbToUiEvent = (d: any) => {
-    const start = d.start_at ? new Date(d.start_at) : null;
-    const end = d.end_at ? new Date(d.end_at) : null;
+const publicImageUrl = (path: string) => {
+    const { data } = supabase.storage.from("event-images").getPublicUrl(path);
+    return data.publicUrl;
+};
 
-    const pad2 = (n: number) => String(n).padStart(2, "0");
-    const ymd = (dt: Date) => `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
-    const hm = (dt: Date) => `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+const FALLBACK_IMAGE =
+    "https://images.unsplash.com/photo-1528360983277-13d9b152c611?auto=format&fit=crop&q=80";
+
+const coverImageUrl = (e: { image_paths?: string[] | null }) => {
+    const p = e.image_paths?.[0];
+    return p ? publicImageUrl(p) : FALLBACK_IMAGE;
+};
+
+const dbToUiEvent = (d: any) => {
+    const toHHMM = (t: string | null | undefined) => (t ? String(t).slice(0, 5) : "");
+
+    const image_paths =
+        Array.isArray(d.image_paths) ? d.image_paths.map((p: any) => String(p)) : undefined;
 
     return {
         id: String(d.id),
@@ -951,18 +962,21 @@ const dbToUiEvent = (d: any) => {
         city: d.city ?? "",
         area: d.prefecture ?? "",
 
-        // UIが使ってる想定フィールド
-        date: start ? ymd(start) : "",
-        startTime: start ? hm(start) : "",
-        endTime: end ? hm(end) : "",
+        date: d.start_date ?? "",
+        startTime: toHHMM(d.start_time),
+        endTime: toHHMM(d.end_time),
 
-        // DBに無いので暫定値
-        lat: 34.6937,
-        lng: 135.1955,
+        lat: (d.latitude ?? null) !== null ? Number(d.latitude) : 34.6937,
+        lng: (d.longitude ?? null) !== null ? Number(d.longitude) : 135.1955,
+
         priceYen: 0,
-        organizer: "",
-        tags: [],
-        imageUrl: "",
+        organizer: d.organizer_name ?? "",
+        tags: d.tags ?? [],
+
+        image_paths,
+
+        // ✅ 追加
+        imageUrl: coverImageUrl({ image_paths }),
     };
 };
 
