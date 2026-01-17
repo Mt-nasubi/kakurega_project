@@ -6,7 +6,7 @@ import type { KakuregaEvent } from "../types/types";
 import { useToast } from "../context/toast";
 import { fetchMyFavoriteEvents, removeFavorite } from "../lib/apiClient";
 import { dbToUiEvent } from "../lib/eventMapping";
-import Card from "../components/Card";
+import { Card } from "../components/Card";
 
 const SavedPage: React.FC<{
     favIds: Set<string>;

@@ -1,5 +1,6 @@
 import React from "react";
-import Card from "../components/Card";
+import { Card } from "../components/Card";
+
 
 const AboutPage: React.FC = () => (
     <div className="max-w-3xl mx-auto px-4 md:px-6 py-6 space-y-6">

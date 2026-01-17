@@ -3,7 +3,7 @@ import { ArrowRight, Filter } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import type { KakuregaEvent } from "../types/types";
-import Card from "../components/Card";
+import { Card } from "../components/Card";
 import HeroSection from "../components/HeroSection";
 import RichEventCard from "../components/RichEventCard";
 
