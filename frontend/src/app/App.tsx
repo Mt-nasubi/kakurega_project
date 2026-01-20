@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { fetchPublicEvents, fetchMyFavoriteIds } from "../lib/apiClient";
 import { dbToUiEvent } from "../lib/eventMapping";
+import { RequireAuth } from "../routes/RequireAuth";
 
 import Layout from "./Layout";
 import HomePage from "../pages/Home";
@@ -9,6 +10,11 @@ import SearchPage from "../pages/Search";
 import SavedPage from "../pages/Favorites";
 import AboutPage from "../pages/About";
 import LoginPage from "../pages/Login";
+import SignupPage from "../pages/Signup";
+import Favorites from "../pages/Favorites";
+import AuthCallbackPage from "../pages/AuthCallback";
+import MyPage from "../pages/MyPage";
+
 
 const App: React.FC = () => {
     const [events, setEvents] = useState<any[]>([]);
@@ -48,7 +54,6 @@ const App: React.FC = () => {
     }, []);
 
     return (
-        <HashRouter>
             <Layout
                 events={events}
                 favIds={favIds}
@@ -77,9 +82,19 @@ const App: React.FC = () => {
                     />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/login" element={<LoginPage />} />
+                    <Route path="/signup" element={<SignupPage />} />
+                    <Route
+                        path="/favorites"
+                        element={
+                            <RequireAuth>
+                                <Favorites/>
+                            </RequireAuth>
+                        }
+                    />
+                    <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                    <Route path="/mypage" element={<MyPage />} />
                 </Routes>
             </Layout>
-        </HashRouter>
     );
 };
 

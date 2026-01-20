@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import { Menu, User, ChevronDown } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Menu, User } from "lucide-react";
 import KakuregaLogo from "./KakuregaLogo";
 import MegaMenu from "./MegaMenu";
+import { useAuth } from "../lib/auth";
 
 type HeaderProps = {
     onOpenSidebar: () => void;
@@ -11,6 +12,20 @@ type HeaderProps = {
 
 const Header: React.FC<HeaderProps> = ({ onOpenSidebar, onLoginClick }) => {
     const [open, setOpen] = useState(false);
+    const navigate = useNavigate();
+    const { user, profile } = useAuth();
+
+    const displayLabel = profile?.display_name?.trim()
+        ? profile.display_name
+        : (user?.email ? user.email.split("@")[0] : "マイページ");
+
+    const handleAccountClick = () => {
+        if (user) {
+            navigate("/mypage");
+            return;
+        }
+        onLoginClick();
+    };
 
     return (
         <header
@@ -26,6 +41,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenSidebar, onLoginClick }) => {
                     onClick={onOpenSidebar}
                     className="md:hidden flex flex-col items-center justify-center text-white"
                     aria-label="メニュー"
+                    type="button"
                 >
                     <Menu size={24} />
                     <span className="text-[10px] opacity-90">メニュー</span>
@@ -68,16 +84,23 @@ const Header: React.FC<HeaderProps> = ({ onOpenSidebar, onLoginClick }) => {
                 </Link>
             </div>
 
-            {/* 右 */}
+            {/* 右：ログイン or ユーザー名 */}
             <button
-                onClick={onLoginClick}
+                onClick={handleAccountClick}
                 className="flex flex-col items-center justify-center text-white"
-                aria-label="ログイン"
+                aria-label={user ? "マイページ" : "ログイン"}
+                type="button"
             >
                 <div className="w-[26px] h-[26px] bg-white/20 rounded-full flex items-center justify-center border border-white/40">
                     <User size={16} />
                 </div>
-                <span className="text-[10px] opacity-90">ログイン</span>
+
+                <span
+                    className="text-[10px] opacity-90 max-w-[88px] truncate"
+                    title={user ? displayLabel : "ログイン"}
+                >
+                    {user ? displayLabel : "ログイン"}
+                </span>
             </button>
 
             {/* メガメニュー */}

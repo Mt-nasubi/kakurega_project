@@ -1,11 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { ensureProfile } from "../lib/profile";
 
 import { Eye, EyeOff } from "lucide-react";
 import { SiLine } from "react-icons/si";
-
-type Mode = "signin" | "signup";
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -14,11 +13,10 @@ const LoginPage: React.FC = () => {
     const next = useMemo(() => {
         const params = new URLSearchParams(location.search);
         const raw = params.get("next") || "/";
-        // オープンリダイレクト対策：同一オリジン相当（先頭が / のみ許可）
+        // オープンリダイレクト対策：先頭が / のみ許可
         return raw.startsWith("/") ? raw : "/";
     }, [location.search]);
 
-    const [mode, setMode] = useState<Mode>("signin");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPw, setShowPw] = useState(false);
@@ -27,7 +25,7 @@ const LoginPage: React.FC = () => {
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    const handleEmailAuth = async () => {
+    const handleSignIn = async () => {
         setLoading(true);
         setError(null);
         setMessage(null);
@@ -42,37 +40,35 @@ const LoginPage: React.FC = () => {
                 return;
             }
 
-            if (mode === "signin") {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email.trim(),
-                    password,
-                });
-                if (error) throw error;
-                if (!data.session) {
-                    setError("ログインに失敗しました。もう一度お試しください。");
-                    return;
-                }
-                navigate(next, { replace: true });
-            } else {
-                const { data, error } = await supabase.auth.signUp({
-                    email: email.trim(),
-                    password,
-                    options: {
-                        emailRedirectTo: window.location.origin + next,
-                    },
-                });
-                if (error) throw error;
+            console.log("signIn start");
 
-                // 環境設定によっては “確認メール” が飛ぶ
-                if (data.user && !data.session) {
-                    setMessage("確認メールを送信しました。メール内リンクから完了してください。");
-                } else {
-                    navigate(next, { replace: true });
-                }
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            });
+
+            console.log("signIn result", { hasSession: !!data.session, error });
+
+            if (error) throw error;
+            if (!data.session) {
+                setError("ログインに失敗しました。もう一度お試しください。");
+                return;
             }
+
+            // profiles 作成（失敗してもログインは通す）
+            try {
+                await ensureProfile();
+                console.log("ensureProfile OK (Login)");
+            } catch (e) {
+                console.error("ensureProfile failed (Login)", e);
+            }
+
+            navigate(next, { replace: true });
         } catch (e: any) {
+            console.error("signIn catch", e);
             setError(e?.message ?? "エラーが発生しました。");
         } finally {
+            console.log("signIn finally -> setLoading(false)");
             setLoading(false);
         }
     };
@@ -81,18 +77,18 @@ const LoginPage: React.FC = () => {
         setLoading(true);
         setError(null);
         setMessage(null);
-
+    
         try {
             if (!email.trim()) {
                 setError("パスワード再設定のため、メールアドレスを入力してください。");
                 return;
             }
-
+        
             const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                redirectTo: window.location.origin + "/reset-password",
+                redirectTo: `${window.location.origin}/#/reset-password`,
             });
+        
             if (error) throw error;
-
             setMessage("再設定用メールを送信しました。受信箱をご確認ください。");
         } catch (e: any) {
             setError(e?.message ?? "エラーが発生しました。");
@@ -102,10 +98,6 @@ const LoginPage: React.FC = () => {
     };
 
     const handleLineLogin = async () => {
-        // SupabaseはLINEを直接プロバイダとして持たないので、ここは後で差し替える
-        // 例：
-        // - Auth0経由なら「Auth0へリダイレクト」
-        // - Edge Functionなら「/functions/v1/line-login?next=...」へ遷移
         setMessage(null);
         setError("LINEログインは準備中です（Auth0またはEdge Functionで接続します）。");
     };
@@ -134,9 +126,7 @@ const LoginPage: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-xs text-kakurega-muted">
-                                パスワード
-                            </label>
+                            <label className="text-xs text-kakurega-muted">パスワード</label>
 
                             <div className="relative">
                                 <input
@@ -152,6 +142,7 @@ const LoginPage: React.FC = () => {
                                         bg-white
                                     "
                                     placeholder="••••••••"
+                                    disabled={loading}
                                 />
 
                                 <button
@@ -165,12 +156,9 @@ const LoginPage: React.FC = () => {
                                         transition-colors
                                     "
                                     aria-label={showPw ? "パスワードを隠す" : "パスワードを表示"}
+                                    disabled={loading}
                                 >
-                                    {showPw ? (
-                                        <EyeOff size={18} />
-                                    ) : (
-                                        <Eye size={18} />
-                                    )}
+                                    {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
                         </div>
@@ -187,11 +175,11 @@ const LoginPage: React.FC = () => {
                         </div>
 
                         <button
-                            onClick={handleEmailAuth}
+                            onClick={handleSignIn}
                             className="w-full mt-2 px-5 py-4 bg-kakurega-green text-white rounded-2xl text-sm font-bold shadow hover:bg-kakurega-dark-green transition-colors disabled:opacity-60"
                             disabled={loading}
                         >
-                            {loading ? "処理中..." : mode === "signin" ? "ログイン" : "新規登録"}
+                            {loading ? "処理中..." : "ログイン"}
                         </button>
 
                         {error && (
@@ -221,6 +209,7 @@ const LoginPage: React.FC = () => {
                                 transition-colors
                                 flex items-center justify-center gap-3
                             "
+                            disabled={loading}
                         >
                             <SiLine size={20} />
                             LINEでログイン
@@ -232,18 +221,15 @@ const LoginPage: React.FC = () => {
                     </div>
                 </div>
             </div>
-            
+
             <div className="mt-10 text-center">
                 <div className="text-lg font-bold text-kakurega-ink mb-4">
                     はじめてご利用の方
                 </div>
-                                
+
                 <button
                     type="button"
-                    onClick={() => {
-                        setMode("signup");
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
+                    onClick={() => navigate(`/signup?next=${encodeURIComponent(next)}`)}
                     className="
                         px-10 py-4
                         bg-white
@@ -301,12 +287,14 @@ const LoginPage: React.FC = () => {
                 <button
                     onClick={() => navigate(next)}
                     className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors"
+                    disabled={loading}
                 >
                     戻る
                 </button>
                 <button
                     onClick={() => navigate("/")}
                     className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors"
+                    disabled={loading}
                 >
                     ホームへ
                 </button>
