@@ -1,19 +1,29 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { ensureProfile } from "../lib/profile";
+import { useAuth } from "../lib/auth";
 
 import { Eye, EyeOff } from "lucide-react";
 import { SiLine } from "react-icons/si";
 
+const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
+    return await Promise.race([
+        p,
+        new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms)
+        ),
+    ]);
+};
+
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user, initializing } = useAuth();
 
     const next = useMemo(() => {
         const params = new URLSearchParams(location.search);
         const raw = params.get("next") || "/";
-        // オープンリダイレクト対策：先頭が / のみ許可
         return raw.startsWith("/") ? raw : "/";
     }, [location.search]);
 
@@ -25,7 +35,20 @@ const LoginPage: React.FC = () => {
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // ★ 追加：ログイン済みならログイン画面に居続けない
+    useEffect(() => {
+        if (initializing) return;
+        if (!user) return;
+        navigate(next, { replace: true });
+    }, [initializing, user, next, navigate]);
+
     const handleSignIn = async () => {
+        // 既にログイン済みなら即遷移
+        if (user) {
+            navigate(next, { replace: true });
+            return;
+        }
+
         setLoading(true);
         setError(null);
         setMessage(null);
@@ -42,10 +65,14 @@ const LoginPage: React.FC = () => {
 
             console.log("signIn start");
 
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: email.trim(),
-                password,
-            });
+            const { data, error } = await withTimeout(
+                supabase.auth.signInWithPassword({
+                    email: email.trim(),
+                    password,
+                }),
+                8000,
+                "signInWithPassword"
+            );
 
             console.log("signIn result", { hasSession: !!data.session, error });
 
@@ -55,13 +82,10 @@ const LoginPage: React.FC = () => {
                 return;
             }
 
-            // profiles 作成（失敗してもログインは通す）
-            try {
-                await ensureProfile();
-                console.log("ensureProfile OK (Login)");
-            } catch (e) {
-                console.error("ensureProfile failed (Login)", e);
-            }
+            // profiles 作成は “待たない” でOK（遅くてもログイン自体は完了させる）
+            ensureProfile()
+                .then(() => console.log("ensureProfile OK (Login)"))
+                .catch((e) => console.error("ensureProfile failed (Login)", e));
 
             navigate(next, { replace: true });
         } catch (e: any) {
@@ -77,17 +101,21 @@ const LoginPage: React.FC = () => {
         setLoading(true);
         setError(null);
         setMessage(null);
-    
+
         try {
             if (!email.trim()) {
                 setError("パスワード再設定のため、メールアドレスを入力してください。");
                 return;
             }
-        
-            const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                redirectTo: `${window.location.origin}/#/reset-password`,
-            });
-        
+
+            const { error } = await withTimeout(
+                supabase.auth.resetPasswordForEmail(email.trim(), {
+                    redirectTo: `${window.location.origin}/#/reset-password`,
+                }),
+                8000,
+                "resetPasswordForEmail"
+            );
+
             if (error) throw error;
             setMessage("再設定用メールを送信しました。受信箱をご確認ください。");
         } catch (e: any) {
@@ -121,7 +149,7 @@ const LoginPage: React.FC = () => {
                                 autoComplete="email"
                                 className="w-full rounded-2xl border border-black/10 px-4 py-3 outline-none focus:ring-2 focus:ring-kakurega-green/40 bg-white"
                                 placeholder="you@example.com"
-                                disabled={loading}
+                                disabled={loading || (!!user && !initializing)}
                             />
                         </div>
 
@@ -142,12 +170,12 @@ const LoginPage: React.FC = () => {
                                         bg-white
                                     "
                                     placeholder="••••••••"
-                                    disabled={loading}
+                                    disabled={loading || (!!user && !initializing)}
                                 />
 
                                 <button
                                     type="button"
-                                    onClick={() => setShowPw(v => !v)}
+                                    onClick={() => setShowPw((v) => !v)}
                                     className="
                                         absolute inset-y-0 right-3
                                         flex items-center
@@ -222,78 +250,17 @@ const LoginPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mt-10 text-center">
-                <div className="text-lg font-bold text-kakurega-ink mb-4">
-                    はじめてご利用の方
-                </div>
-
-                <button
-                    type="button"
-                    onClick={() => navigate(`/signup?next=${encodeURIComponent(next)}`)}
-                    className="
-                        px-10 py-4
-                        bg-white
-                        border border-kakurega-green/50
-                        rounded-full
-                        text-sm font-bold text-kakurega-green
-                        shadow-sm
-                        hover:bg-kakurega-green/5
-                        transition-colors
-                        disabled:opacity-60
-                    "
-                    disabled={loading}
-                >
-                    新規会員登録
-                </button>
-
-                <div className="mt-3 text-[11px] text-kakurega-muted">
-                    続行すると、
-                    <span
-                        className="
-                            mx-1
-                            underline
-                            text-kakurega-green
-                            hover:text-kakurega-dark-green
-                            cursor-pointer
-                            transition-colors
-                        "
-                        onClick={() => {
-                            /* 後で navigate("/terms") */
-                        }}
-                    >
-                        利用規約
-                    </span>
-                    および
-                    <span
-                        className="
-                            mx-1
-                            underline
-                            text-kakurega-green
-                            hover:text-kakurega-dark-green
-                            cursor-pointer
-                            transition-colors
-                        "
-                        onClick={() => {
-                            /* 後で navigate("/privacy") */
-                        }}
-                    >
-                        プライバシーポリシー
-                    </span>
-                    に同意したものとみなします。
-                </div>
-            </div>
-
             <div className="mt-6 flex gap-3 justify-center">
                 <button
                     onClick={() => navigate(next)}
-                    className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors"
+                    className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors disabled:opacity-60"
                     disabled={loading}
                 >
                     戻る
                 </button>
                 <button
                     onClick={() => navigate("/")}
-                    className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors"
+                    className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors disabled:opacity-60"
                     disabled={loading}
                 >
                     ホームへ

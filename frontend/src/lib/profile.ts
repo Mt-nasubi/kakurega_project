@@ -9,67 +9,89 @@ export type Profile = {
     updated_at: string;
 };
 
-
-    export const ensureProfile = async (): Promise<void> => {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
+export const ensureProfile = async (): Promise<void> => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
 
     const user = sessionData.session?.user;
     if (!user) return;
 
-    // ★ Auth の metadata から拾う（Signupで options.data に入れたやつ）
-    const displayName =
+    const displayNameFromAuth =
         (user.user_metadata?.display_name as string | undefined) ??
         (user.email ? user.email.split("@")[0] : null);
 
-
     const { data: existing, error: selectError } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, email, display_name, notify_enabled")
         .eq("id", user.id)
         .maybeSingle();
 
     if (selectError) throw selectError;
 
-    const { data: check, error: checkError } = await supabase
-        .from("profiles")
-        .select("id, email, display_name, created_at, updated_at")
-        .eq("id", user.id)
-        .maybeSingle();
-
     if (!existing) {
-        const { error: upsertError } = await supabase.from("profiles").upsert(
-            {
-                id: user.id,
-                email: user.email ?? null,
-                display_name: displayName,
-            },
-            { onConflict: "id" }
-        );
+        const { error: upsertError } = await supabase
+            .from("profiles")
+            .upsert(
+                {
+                    id: user.id,
+                    email: user.email ?? null,
+                    display_name: displayNameFromAuth,
+                },
+                { onConflict: "id" }
+            );
 
         if (upsertError) throw upsertError;
+        return;
     }
+
+    const patch: Partial<Pick<Profile, "email" | "display_name">> = {};
+
+    if (!existing.email && user.email) {
+        patch.email = user.email;
+    }
+
+    const currentName = (existing.display_name ?? "").trim();
+    if (!currentName && displayNameFromAuth) {
+        patch.display_name = displayNameFromAuth;
+    }
+
+    if (Object.keys(patch).length === 0) return;
+
+    const { error: updateError } = await supabase
+        .from("profiles")
+        .update(patch)
+        .eq("id", user.id);
+
+    if (updateError) throw updateError;
 };
 
 export const fetchMyProfile = async (): Promise<Profile | null> => {
-    const { data: sessionData } = await supabase.auth.getSession();
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+
     const user = sessionData.session?.user;
     if (!user) return null;
+
+    console.log("[profile] fetchMyProfile start", { userId: user.id });
 
     const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
+
+    console.log("[profile] fetchMyProfile result", { hasData: !!data, error });
 
     if (error) throw error;
-    return data as Profile;
+    return (data ?? null) as Profile | null;
 };
 
 export const updateMyProfile = async (
     patch: Partial<Pick<Profile, "display_name" | "notify_enabled">>
 ): Promise<void> => {
-    const { data: sessionData } = await supabase.auth.getSession();
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+
     const user = sessionData.session?.user;
     if (!user) throw new Error("Not authenticated");
 
@@ -80,4 +102,3 @@ export const updateMyProfile = async (
 
     if (error) throw error;
 };
-

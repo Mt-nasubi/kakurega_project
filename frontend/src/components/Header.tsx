@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Menu, User } from "lucide-react";
 import KakuregaLogo from "./KakuregaLogo";
@@ -13,11 +13,23 @@ type HeaderProps = {
 const Header: React.FC<HeaderProps> = ({ onOpenSidebar, onLoginClick }) => {
     const [open, setOpen] = useState(false);
     const navigate = useNavigate();
-    const { user, profile } = useAuth();
+    const { user, profile, initializing } = useAuth();
 
-    const displayLabel = profile?.display_name?.trim()
-        ? profile.display_name
-        : (user?.email ? user.email.split("@")[0] : "マイページ");
+    const displayLabel = useMemo(() => {
+        if (!user) return "ログイン";
+        if (initializing) return "...";
+
+        const pName = (profile?.display_name ?? "").trim();
+        if (pName) return pName;
+
+        const metaName = ((user.user_metadata?.display_name as string | undefined) ?? "").trim();
+        if (metaName) return metaName;
+
+        const email = user.email ?? "";
+        if (email) return email.split("@")[0];
+
+        return "マイページ";
+    }, [user, profile?.display_name, initializing]);
 
     const handleAccountClick = () => {
         if (user) {
@@ -64,13 +76,8 @@ const Header: React.FC<HeaderProps> = ({ onOpenSidebar, onLoginClick }) => {
                     tabIndex={0}
                     aria-label="案内メニュー"
                 >
-                    {/* 三本線 */}
                     <Menu size={26} className="opacity-90" />
-
-                    {/* ラベル */}
-                    <span className="text-[10px] leading-none opacity-90">
-                        メニュー
-                    </span>
+                    <span className="text-[10px] leading-none opacity-90">メニュー</span>
                 </div>
             </div>
 
@@ -97,9 +104,9 @@ const Header: React.FC<HeaderProps> = ({ onOpenSidebar, onLoginClick }) => {
 
                 <span
                     className="text-[10px] opacity-90 max-w-[88px] truncate"
-                    title={user ? displayLabel : "ログイン"}
+                    title={displayLabel}
                 >
-                    {user ? displayLabel : "ログイン"}
+                    {displayLabel}
                 </span>
             </button>
 

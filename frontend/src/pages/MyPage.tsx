@@ -1,33 +1,58 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { updateMyProfile } from "../lib/profile";
 import { useAuth } from "../lib/auth";
+import { useToast } from "../context/toast";
 
 const MyPage: React.FC = () => {
-    const { user, profile, refreshProfile, signOut } = useAuth();
+    const navigate = useNavigate();
+    const { user, profile, refreshProfile, signOut, initializing } = useAuth();
+    const { showToast } = useToast();
 
-    const initialName = useMemo(
-        () => profile?.display_name ?? "",
-        [profile?.display_name]
-    );
-    const initialNotify = useMemo(
-        () => profile?.notify_enabled ?? true,
-        [profile?.notify_enabled]
-    );
+    const triedRefetchRef = useRef(false);
 
-    const [displayName, setDisplayName] = useState(initialName);
-    const [notifyEnabled, setNotifyEnabled] = useState(initialNotify);
-    const [newEmail, setNewEmail] = useState(user?.email ?? "");
+    const fallbackName = useMemo(() => {
+        const metaName = (user?.user_metadata?.display_name as string | undefined) ?? "";
+        if (metaName.trim()) return metaName.trim();
+        const email = user?.email ?? "";
+        return email ? email.split("@")[0] : "";
+    }, [user]);
+
+    const initialName = useMemo(() => {
+        const name = (profile?.display_name ?? "").trim();
+        return name || fallbackName || "";
+    }, [profile?.display_name, fallbackName]);
+
+    const initialNotify = useMemo(() => {
+        return profile?.notify_enabled ?? true;
+    }, [profile?.notify_enabled]);
+
+    const [displayName, setDisplayName] = useState("");
+    const [notifyEnabled, setNotifyEnabled] = useState(true);
+    const [newEmail, setNewEmail] = useState("");
 
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    console.log("[mypage] state", { initializing, hasUser: !!user, hasProfile: !!profile });
 
     useEffect(() => {
         setDisplayName(initialName);
         setNotifyEnabled(initialNotify);
         setNewEmail(user?.email ?? "");
     }, [initialName, initialNotify, user?.email]);
+
+    useEffect(() => {
+        if (!user) return;
+        if (profile) return;
+        if (initializing) return;
+        if (triedRefetchRef.current) return;
+
+        triedRefetchRef.current = true;
+        refreshProfile().catch((e) => console.error("refreshProfile (fallback) failed", e));
+    }, [user, profile, initializing, refreshProfile]);
 
     const saveProfile = async () => {
         if (!user) return;
@@ -44,9 +69,12 @@ const MyPage: React.FC = () => {
 
             await refreshProfile();
             setMessage("保存しました。");
+            showToast({ type: "success", message: "表示名を保存しました。" });
         } catch (e: any) {
             console.error(e);
-            setError(e?.message ?? "保存に失敗しました。");
+            const msg = e?.message ?? "保存に失敗しました。";
+            setError(msg);
+            showToast({ type: "error", message: msg });
         } finally {
             setSaving(false);
         }
@@ -62,18 +90,23 @@ const MyPage: React.FC = () => {
         try {
             const email = newEmail.trim();
             if (!email) {
-                setError("メールアドレスを入力してください。");
+                const msg = "メールアドレスを入力してください。";
+                setError(msg);
+                showToast({ type: "error", message: msg });
                 return;
             }
 
-            // Supabase Auth のメール変更（通常、確認メールが飛んで確定する）
             const { error } = await supabase.auth.updateUser({ email });
             if (error) throw error;
 
-            setMessage("確認メールを送信しました。メール内のリンクで変更を完了してください。");
+            const ok = "確認メールを送信しました。メール内のリンクで変更を完了してください。";
+            setMessage(ok);
+            showToast({ type: "success", message: "確認メールを送信しました。" });
         } catch (e: any) {
             console.error(e);
-            setError(e?.message ?? "メール変更に失敗しました。");
+            const msg = e?.message ?? "メール変更に失敗しました。";
+            setError(msg);
+            showToast({ type: "error", message: msg });
         } finally {
             setSaving(false);
         }
@@ -86,21 +119,46 @@ const MyPage: React.FC = () => {
 
         try {
             await signOut();
+            showToast({ type: "success", message: "ログアウトしました。" });
+            navigate("/login", { replace: true });
         } catch (e: any) {
-            setError(e?.message ?? "ログアウトに失敗しました。");
+            console.error(e);
+            const msg = e?.message ?? "ログアウトに失敗しました。";
+            setError(msg);
+            showToast({ type: "error", message: msg });
         } finally {
             setSaving(false);
         }
     };
 
-    if (!user) return null;
+    // ---- ここから下は「表示の分岐」だけ（Hooksの後） ----
+    if (initializing) {
+        return (
+            <div className="max-w-2xl mx-auto px-4 md:px-6 py-10">
+                <h1 className="text-2xl font-bold text-kakurega-ink mb-6">マイページ</h1>
+                <div className="bg-white/80 border border-black/10 rounded-3xl shadow-sm p-6">
+                    <div className="text-sm text-kakurega-muted">読み込み中...</div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div className="max-w-2xl mx-auto px-4 md:px-6 py-10">
+                <h1 className="text-2xl font-bold text-kakurega-ink mb-6">マイページ</h1>
+                <div className="bg-white/80 border border-black/10 rounded-3xl shadow-sm p-6">
+                    <div className="text-sm text-kakurega-muted">ログインが必要です。</div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-2xl mx-auto px-4 md:px-6 py-10">
             <h1 className="text-2xl font-bold text-kakurega-ink mb-6">マイページ</h1>
 
             <div className="bg-white/80 border border-black/10 rounded-3xl shadow-sm p-6 space-y-6">
-                {/* プロフィール */}
                 <section className="space-y-3">
                     <div className="text-sm font-bold text-kakurega-ink">プロフィール</div>
 
@@ -113,6 +171,11 @@ const MyPage: React.FC = () => {
                             placeholder="例：太一"
                             disabled={saving}
                         />
+                        {!profile && (
+                            <div className="text-xs text-kakurega-muted">
+                                プロフィール情報を取得中です（初回は少し時間がかかる場合があります）。
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-center justify-between rounded-2xl border border-black/10 px-4 py-3 bg-white">
@@ -138,7 +201,6 @@ const MyPage: React.FC = () => {
                     </div>
                 </section>
 
-                {/* メールアドレス */}
                 <section className="space-y-3">
                     <div className="text-sm font-bold text-kakurega-ink">メールアドレス</div>
 
@@ -169,7 +231,6 @@ const MyPage: React.FC = () => {
                     </div>
                 </section>
 
-                {/* 保存・ログアウト */}
                 <section className="space-y-3">
                     <div className="flex gap-3">
                         <button

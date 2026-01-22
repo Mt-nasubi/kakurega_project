@@ -12,8 +12,10 @@ import AboutPage from "../pages/About";
 import LoginPage from "../pages/Login";
 import SignupPage from "../pages/Signup";
 import Favorites from "../pages/Favorites";
-import AuthCallbackPage from "../pages/AuthCallback";
 import MyPage from "../pages/MyPage";
+import AuthCallbackPage from "../pages/AuthCallback";
+import AuthSuccess from "../pages/AuthSuccess";
+import AuthError from "../pages/AuthError";
 
 
 const App: React.FC = () => {
@@ -93,6 +95,8 @@ const App: React.FC = () => {
                     />
                     <Route path="/auth/callback" element={<AuthCallbackPage />} />
                     <Route path="/mypage" element={<MyPage />} />
+                    <Route path="/auth/success" element={<AuthSuccess />} />
+                    <Route path="/auth/error" element={<AuthError />} />
                 </Routes>
             </Layout>
     );

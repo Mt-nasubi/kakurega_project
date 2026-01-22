@@ -1,3 +1,4 @@
+// src/pages/AuthCallbackPage.tsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -10,18 +11,32 @@ const AuthCallbackPage: React.FC = () => {
     useEffect(() => {
         const run = async () => {
             try {
-                // Supabaseのメール確認は "code" が付いて戻る（PKCE）
                 const code = params.get("code");
                 const next = params.get("next") || "/";
 
-                if (code) {
-                    const { error } = await supabase.auth.exchangeCodeForSession(code);
-                    if (error) throw error;
+                if (!code) {
+                    throw new Error("認証コードが見つかりません。");
                 }
 
-                navigate(next.startsWith("/") ? next : "/", { replace: true });
+                const { error } = await supabase.auth.exchangeCodeForSession(code);
+                if (error) {
+                    throw error;
+                }
+
+                const safeNext = next.startsWith("/") ? next : "/";
+
+                navigate(
+                    `/auth/success?next=${encodeURIComponent(safeNext)}`,
+                    { replace: true }
+                );
             } catch (e: any) {
-                setError(e?.message ?? "認証の完了に失敗しました。");
+                const message =
+                    e?.message ?? "認証の完了に失敗しました。";
+
+                navigate(
+                    `/auth/error?message=${encodeURIComponent(message)}`,
+                    { replace: true }
+                );
             }
         };
 
