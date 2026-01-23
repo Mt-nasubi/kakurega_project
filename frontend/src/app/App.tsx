@@ -16,6 +16,9 @@ import MyPage from "../pages/MyPage";
 import AuthCallbackPage from "../pages/AuthCallback";
 import AuthSuccess from "../pages/AuthSuccess";
 import AuthError from "../pages/AuthError";
+import PrivacyPage from "../pages/Privacy";
+import TermsPage from "../pages/Terms";
+import ResetPasswordPage from "../pages/ResetPasswordPage";
 
 
 const App: React.FC = () => {
@@ -82,9 +85,6 @@ const App: React.FC = () => {
                         path="/saved"
                         element={<SavedPage favIds={favIds} setFavIds={setFavIds} />}
                     />
-                    <Route path="/about" element={<AboutPage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/signup" element={<SignupPage />} />
                     <Route
                         path="/favorites"
                         element={
@@ -93,10 +93,18 @@ const App: React.FC = () => {
                             </RequireAuth>
                         }
                     />
-                    <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/login" element={<LoginPage />} />
                     <Route path="/mypage" element={<MyPage />} />
+                    <Route path="/Privacy" element={<PrivacyPage />} />
+                    <Route path="/Terms" element={<TermsPage />} />
+
+                    <Route path="/signup" element={<SignupPage />} />
+                    <Route path="/auth/callback" element={<AuthCallbackPage />} />
                     <Route path="/auth/success" element={<AuthSuccess />} />
                     <Route path="/auth/error" element={<AuthError />} />
+
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
                 </Routes>
             </Layout>
     );

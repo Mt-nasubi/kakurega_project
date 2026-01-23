@@ -3,9 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { ensureProfile } from "../lib/profile";
 import { useAuth } from "../lib/auth";
-
 import { Eye, EyeOff } from "lucide-react";
-import { SiLine } from "react-icons/si";
 
 const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
     return await Promise.race([
@@ -31,19 +29,44 @@ const LoginPage: React.FC = () => {
     const [password, setPassword] = useState("");
     const [showPw, setShowPw] = useState(false);
 
+    // UIだけ（必要なら後で localStorage と連携）
+    const [remember, setRemember] = useState(false);
+
+    // 規約同意（ログインも必須）
+    const [agree, setAgree] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // ★ 追加：ログイン済みならログイン画面に居続けない
+    // リンク先（必要なら差し替え）
+    const POLICY_PATH = "/privacy";
+    const TERMS_PATH = "/terms";
+
+    // ログイン済みなら戻す
     useEffect(() => {
         if (initializing) return;
         if (!user) return;
         navigate(next, { replace: true });
     }, [initializing, user, next, navigate]);
 
+    const validateCommon = (): boolean => {
+        if (!email.trim()) {
+            setError("メールアドレスを入力してください。");
+            return false;
+        }
+        if (!password) {
+            setError("パスワードを入力してください。");
+            return false;
+        }
+        if (!agree) {
+            setError("利用規約・プライバシーポリシーへの同意が必要です。");
+            return false;
+        }
+        return true;
+    };
+
     const handleSignIn = async () => {
-        // 既にログイン済みなら即遷移
         if (user) {
             navigate(next, { replace: true });
             return;
@@ -54,16 +77,7 @@ const LoginPage: React.FC = () => {
         setMessage(null);
 
         try {
-            if (!email.trim()) {
-                setError("メールアドレスを入力してください。");
-                return;
-            }
-            if (!password) {
-                setError("パスワードを入力してください。");
-                return;
-            }
-
-            console.log("signIn start");
+            if (!validateCommon()) return;
 
             const { data, error } = await withTimeout(
                 supabase.auth.signInWithPassword({
@@ -74,25 +88,21 @@ const LoginPage: React.FC = () => {
                 "signInWithPassword"
             );
 
-            console.log("signIn result", { hasSession: !!data.session, error });
-
             if (error) throw error;
             if (!data.session) {
                 setError("ログインに失敗しました。もう一度お試しください。");
                 return;
             }
 
-            // profiles 作成は “待たない” でOK（遅くてもログイン自体は完了させる）
             ensureProfile()
                 .then(() => console.log("ensureProfile OK (Login)"))
                 .catch((e) => console.error("ensureProfile failed (Login)", e));
 
             navigate(next, { replace: true });
         } catch (e: any) {
-            console.error("signIn catch", e);
+            console.error(e);
             setError(e?.message ?? "エラーが発生しました。");
         } finally {
-            console.log("signIn finally -> setLoading(false)");
             setLoading(false);
         }
     };
@@ -125,136 +135,132 @@ const LoginPage: React.FC = () => {
         }
     };
 
-    const handleLineLogin = async () => {
-        setMessage(null);
-        setError("LINEログインは準備中です（Auth0またはEdge Functionで接続します）。");
+    const onSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (loading) return;
+        void handleSignIn();
     };
 
     return (
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-10">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-10">
             <h1 className="text-center font-serif text-2xl font-bold text-kakurega-ink mb-8">
                 ログイン
             </h1>
 
             <div className="bg-white/80 border border-black/10 rounded-3xl shadow-sm overflow-hidden">
                 <div className="grid md:grid-cols-2">
-                    {/* Left: Email */}
-                    <div className="p-6 md:p-10 space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-xs text-kakurega-muted">メールアドレス</label>
-                            <input
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                type="email"
-                                autoComplete="email"
-                                className="w-full rounded-2xl border border-black/10 px-4 py-3 outline-none focus:ring-2 focus:ring-kakurega-green/40 bg-white"
-                                placeholder="you@example.com"
-                                disabled={loading || (!!user && !initializing)}
-                            />
+                    {/* Left */}
+                    <div className="p-6 md:p-12 bg-black/[0.03]">
+                        <div className="text-center text-lg font-bold text-kakurega-ink mb-6">
+                            会員の方
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-xs text-kakurega-muted">パスワード</label>
-
-                            <div className="relative">
+                        <form onSubmit={onSubmit} className="space-y-4">
+                            <div className="space-y-2">
                                 <input
-                                    type={showPw ? "text" : "password"}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    autoComplete="current-password"
-                                    className="
-                                        w-full rounded-2xl border border-black/10
-                                        px-4 py-3 pr-12
-                                        outline-none
-                                        focus:ring-2 focus:ring-kakurega-green/40
-                                        bg-white
-                                    "
-                                    placeholder="••••••••"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    type="email"
+                                    autoComplete="email"
+                                    className="w-full rounded-2xl border border-black/10 px-4 py-3 outline-none focus:ring-2 focus:ring-kakurega-green/40 bg-white"
+                                    placeholder="メールアドレス"
                                     disabled={loading || (!!user && !initializing)}
                                 />
-
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPw((v) => !v)}
-                                    className="
-                                        absolute inset-y-0 right-3
-                                        flex items-center
-                                        text-kakurega-muted
-                                        hover:text-kakurega-ink
-                                        transition-colors
-                                    "
-                                    aria-label={showPw ? "パスワードを隠す" : "パスワードを表示"}
-                                    disabled={loading}
-                                >
-                                    {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
                             </div>
-                        </div>
 
-                        <div className="flex items-center justify-between text-xs">
+                            <div className="space-y-2">
+                                <div className="relative">
+                                    <input
+                                        type={showPw ? "text" : "password"}
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        autoComplete="current-password"
+                                        className="w-full rounded-2xl border border-black/10 px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-kakurega-green/40 bg-white"
+                                        placeholder="パスワード"
+                                        disabled={loading || (!!user && !initializing)}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPw((v) => !v)}
+                                        className="absolute inset-y-0 right-3 flex items-center text-kakurega-muted hover:text-kakurega-ink transition-colors"
+                                        aria-label={showPw ? "パスワードを隠す" : "パスワードを表示"}
+                                        disabled={loading}
+                                    >
+                                        {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* remember */}
+                            <label className="flex items-center gap-3 text-sm text-kakurega-ink select-none">
+                                <input
+                                    type="checkbox"
+                                    className="h-4 w-4"
+                                    checked={remember}
+                                    onChange={(e) => setRemember(e.target.checked)}
+                                    disabled={loading}
+                                />
+                                メールアドレス、パスワードを記憶
+                            </label>
+
+                            <button
+                                type="submit"
+                                className="w-full mt-4 px-5 py-4 rounded-2xl text-sm font-bold shadow transition-colors disabled:opacity-60 bg-red-500 hover:bg-red-600 text-white"
+                                disabled={loading || !agree}
+                            >
+                                {loading ? "処理中..." : "ログインする"}
+                            </button>
+
                             <button
                                 type="button"
-                                onClick={handleResetPassword}
-                                className="text-kakurega-green font-bold hover:underline"
+                                onClick={() => navigate(`/reset-password?next=${encodeURIComponent(next)}`)}
+                                className="w-full text-sm text-red-600 font-bold hover:underline"
                                 disabled={loading}
                             >
-                                パスワードを忘れた方（再設定）
+                                パスワードを忘れた方はこちらへ
                             </button>
-                        </div>
 
-                        <button
-                            onClick={handleSignIn}
-                            className="w-full mt-2 px-5 py-4 bg-kakurega-green text-white rounded-2xl text-sm font-bold shadow hover:bg-kakurega-dark-green transition-colors disabled:opacity-60"
-                            disabled={loading}
-                        >
-                            {loading ? "処理中..." : "ログイン"}
-                        </button>
-
-                        {error && (
-                            <div className="text-sm bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3">
-                                {error}
-                            </div>
-                        )}
-                        {message && (
-                            <div className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-3">
-                                {message}
-                            </div>
-                        )}
+                            {error && (
+                                <div className="text-sm bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3">
+                                    {error}
+                                </div>
+                            )}
+                            {message && (
+                                <div className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-3">
+                                    {message}
+                                </div>
+                            )}
+                        </form>
                     </div>
 
-                    {/* Right: Social */}
-                    <div className="p-6 md:p-10 border-t md:border-t-0 md:border-l border-black/10 bg-black/[0.02] space-y-4">
+                    {/* Right */}
+                    <div className="p-6 md:p-12 bg-black/[0.02] border-t md:border-t-0 md:border-l border-black/10">
+                        <div className="text-center text-lg font-bold text-kakurega-ink mb-6">
+                            新規会員登録
+                        </div>
+
+                        <p className="text-sm text-kakurega-muted leading-relaxed text-center mb-8">
+                            会員登録がお済みでない方はこちらからご登録ください。会員登録は無料です。
+                        </p>
+
                         <button
-                            onClick={handleLineLogin}
-                            className="
-                                w-full px-5 py-4
-                                bg-[#06C755]
-                                text-white
-                                rounded-2xl
-                                text-sm font-bold
-                                shadow
-                                hover:bg-[#05b34b]
-                                transition-colors
-                                flex items-center justify-center gap-3
-                            "
+                            type="button"
+                            onClick={() => navigate(`/signup?next=${encodeURIComponent(next)}`)}
+                            className="w-full px-5 py-4 rounded-2xl text-sm font-bold shadow transition-colors bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-60"
                             disabled={loading}
                         >
-                            <SiLine size={20} />
-                            LINEでログイン
+                            新規会員登録（無料）
                         </button>
-
-                        <div className="text-xs text-kakurega-muted leading-relaxed">
-                            ※ LINEログインは Supabase単体では直接接続できないため、Auth0 または Edge Function を使って実装します。
-                        </div>
                     </div>
                 </div>
             </div>
 
-            <div className="mt-6 flex gap-3 justify-center">
+            <div className="mt-8 flex justify-center gap-3">
                 <button
                     onClick={() => navigate(next)}
                     className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors disabled:opacity-60"
                     disabled={loading}
+                    type="button"
                 >
                     戻る
                 </button>
@@ -262,6 +268,7 @@ const LoginPage: React.FC = () => {
                     onClick={() => navigate("/")}
                     className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors disabled:opacity-60"
                     disabled={loading}
+                    type="button"
                 >
                     ホームへ
                 </button>
