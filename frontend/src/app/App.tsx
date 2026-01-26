@@ -1,25 +1,31 @@
 import React, { useEffect, useState } from "react";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { fetchPublicEvents, fetchMyFavoriteIds } from "../lib/apiClient";
 import { dbToUiEvent } from "../lib/eventMapping";
 import { RequireAuth } from "../routes/RequireAuth";
 
 import Layout from "./Layout";
-import HomePage from "../pages/Home";
-import SearchPage from "../pages/Search";
-import SavedPage from "../pages/Favorites";
-import AboutPage from "../pages/About";
-import LoginPage from "../pages/Login";
-import SignupPage from "../pages/Signup";
-import Favorites from "../pages/Favorites";
-import MyPage from "../pages/MyPage";
-import AuthCallbackPage from "../pages/AuthCallback";
-import AuthSuccess from "../pages/AuthSuccess";
-import AuthError from "../pages/AuthError";
-import PrivacyPage from "../pages/Privacy";
-import TermsPage from "../pages/Terms";
-import ResetPasswordPage from "../pages/ResetPasswordPage";
+import HomePage from "../pages/home";
+import SearchPage from "../pages/search";
+import SavedPage from "../pages/favorites";
+import AboutPage from "../pages/about";
+import LoginPage from "../pages/login";
+import SignupPage from "../pages/signup";
+import MyPage from "../pages/mypage";
+import AuthCallbackPage from "../pages/authcallback";
+import AuthSuccess from "../pages/authsuccess";
+import AuthError from "../pages/autherror";
+import PrivacyPage from "../pages/privacy";
+import TermsPage from "../pages/terms";
+import ResetPasswordPage from "../pages/resetpassword";
 
+import OrganizerHomePage from "../pages/organizer/organizerhome";
+import OrganizerLoginPage from "../pages/organizer/login";
+import OrganizerSignupPage from "../pages/organizer/signup";
+import OrganizerTermsPage from "../pages/organizer/terms";
+import OrganizerDashboardPage from "../pages/organizer/dashboard";
+import OrganizerNewEventPage from "../pages/organizer/events/new";
+import OrganizerEditEventPage from "../pages/organizer/events/edit";
 
 const App: React.FC = () => {
     const [events, setEvents] = useState<any[]>([]);
@@ -32,12 +38,7 @@ const App: React.FC = () => {
 
             try {
                 const evs = await fetchPublicEvents();
-                console.log("public events raw", evs);
-                console.log("public events count", evs?.length ?? 0);
-
                 const mapped = (evs ?? []).map(dbToUiEvent);
-                console.log("public events mapped", mapped);
-                console.log("public events mapped count", mapped.length);
                 setEvents(mapped);
             } catch (e) {
                 console.error("fetchPublicEvents failed", e);
@@ -55,58 +56,63 @@ const App: React.FC = () => {
             setEventsLoading(false);
         };
 
-        run();
+        void run();
     }, []);
 
     return (
-            <Layout
-                events={events}
-                favIds={favIds}
-                setFavIds={setFavIds}
-                eventsLoading={eventsLoading}
-            >
-                <Routes>
-                    <Route
-                        path="/"
-                        element={<HomePage events={events} eventsLoading={eventsLoading} />}
-                    />
-                    <Route
-                        path="/search"
-                        element={
-                            <SearchPage
-                                events={events}
-                                eventsLoading={eventsLoading}
-                                favIds={favIds}
-                                setFavIds={setFavIds}
-                            />
-                        }
-                    />
-                    <Route
-                        path="/saved"
-                        element={<SavedPage favIds={favIds} setFavIds={setFavIds} />}
-                    />
-                    <Route
-                        path="/favorites"
-                        element={
-                            <RequireAuth>
-                                <Favorites/>
-                            </RequireAuth>
-                        }
-                    />
-                    <Route path="/about" element={<AboutPage />} />
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/mypage" element={<MyPage />} />
-                    <Route path="/Privacy" element={<PrivacyPage />} />
-                    <Route path="/Terms" element={<TermsPage />} />
+        <Layout
+            events={events}
+            favIds={favIds}
+            setFavIds={setFavIds}
+            eventsLoading={eventsLoading}
+        >
+            <Routes>
+                <Route path="/" element={<HomePage events={events} eventsLoading={eventsLoading} />} />
+                <Route
+                    path="/search"
+                    element={
+                        <SearchPage
+                            events={events}
+                            eventsLoading={eventsLoading}
+                            favIds={favIds}
+                            setFavIds={setFavIds}
+                        />
+                    }
+                />
+                <Route path="/saved" element={<SavedPage favIds={favIds} setFavIds={setFavIds} />} />
+                <Route
+                    path="/favorites"
+                    element={
+                        <RequireAuth>
+                            <SavedPage favIds={favIds} setFavIds={setFavIds} />
+                        </RequireAuth>
+                    }
+                />
 
-                    <Route path="/signup" element={<SignupPage />} />
-                    <Route path="/auth/callback" element={<AuthCallbackPage />} />
-                    <Route path="/auth/success" element={<AuthSuccess />} />
-                    <Route path="/auth/error" element={<AuthError />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/mypage" element={<MyPage />} />
 
-                    <Route path="/reset-password" element={<ResetPasswordPage />} />
-                </Routes>
-            </Layout>
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                <Route path="/auth/success" element={<AuthSuccess />} />
+                <Route path="/auth/error" element={<AuthError />} />
+
+                {/* Organizer */}
+                <Route path="/organizer/organizerhome" element={<OrganizerHomePage />} />
+                <Route path="/organizer/login" element={<OrganizerLoginPage />} />
+                <Route path="/organizer/signup" element={<OrganizerSignupPage />} />
+                <Route path="/organizer/terms" element={<OrganizerTermsPage />} />
+                <Route path="/organizer/dashboard" element={<OrganizerDashboardPage />} />
+                <Route path="/organizer/events/new" element={<OrganizerNewEventPage />} />
+                <Route path="/organizer/events/:id/edit" element={<OrganizerEditEventPage />} />
+
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+            </Routes>
+        </Layout>
     );
 };
 

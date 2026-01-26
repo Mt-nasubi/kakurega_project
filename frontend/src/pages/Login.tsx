@@ -32,9 +32,6 @@ const LoginPage: React.FC = () => {
     // UIだけ（必要なら後で localStorage と連携）
     const [remember, setRemember] = useState(false);
 
-    // 規約同意（ログインも必須）
-    const [agree, setAgree] = useState(false);
-
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -57,10 +54,6 @@ const LoginPage: React.FC = () => {
         }
         if (!password) {
             setError("パスワードを入力してください。");
-            return false;
-        }
-        if (!agree) {
-            setError("利用規約・プライバシーポリシーへの同意が必要です。");
             return false;
         }
         return true;
@@ -206,7 +199,7 @@ const LoginPage: React.FC = () => {
                             <button
                                 type="submit"
                                 className="w-full mt-4 px-5 py-4 rounded-2xl text-sm font-bold shadow transition-colors disabled:opacity-60 bg-red-500 hover:bg-red-600 text-white"
-                                disabled={loading || !agree}
+                                disabled={loading}
                             >
                                 {loading ? "処理中..." : "ログインする"}
                             </button>

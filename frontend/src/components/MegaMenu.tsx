@@ -50,6 +50,7 @@ const MegaMenu: React.FC = () => {
                     <ul className="space-y-2 text-sm text-kakurega-muted">
                         <li><Link to="/about">運営情報</Link></li>
                         <li><Link to="/contact">お問い合わせ</Link></li>
+                        <li><Link to="/organizer/organizerhome">イベント掲載方法</Link></li>
                     </ul>
                 </div>
 

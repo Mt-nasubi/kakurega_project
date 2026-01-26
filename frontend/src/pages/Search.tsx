@@ -14,7 +14,7 @@ const SearchPage: React.FC<{
     favIds: Set<string>;
     setFavIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }> = ({ events, eventsLoading, favIds, setFavIds }) => {
-    const { pushToast } = useToast();
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -54,35 +54,32 @@ const SearchPage: React.FC<{
         const sid = String(id);
 
         if (favIds.has(sid)) {
-            pushToast?.("すでに保存されています", "info");
+            showToast({ type: "info", message: "すでに保存されています" });
             return;
         }
 
         try {
             const ok = await addFavorite(sid);
+
             if (!ok) {
-                pushToast?.(
-                    "お気に入りにはログインが必要です",
-                    "info",
-                    {
-                        label: "ログインする",
-                        onClick: () => {
-                            const next = `${location.pathname}${location.search}`;
-                            navigate(`/login?next=${encodeURIComponent(next)}`);
-                        },
-                    }
-                );
+                showToast({ type: "info", message: "お気に入りにはログインが必要です" });
+
+                // 以前の「トースト内ボタン」をやりたいなら Toast側の拡張が必要。
+                // いまは即ログインへ誘導（または confirm）にするのが最小変更。
+                const next = `${location.pathname}${location.search}`;
+                navigate(`/login?next=${encodeURIComponent(next)}`);
                 return;
             }
 
             setFavIds((prev) => {
-                const next = new Set(prev);
-                next.add(sid);
-                return next;
+                const nextSet = new Set(prev);
+                nextSet.add(sid);
+                return nextSet;
             });
-            pushToast?.("保存しました", "success");
+
+            showToast({ type: "success", message: "保存しました" });
         } catch {
-            pushToast?.("保存に失敗しました", "error");
+            showToast({ type: "error", message: "保存に失敗しました" });
         }
     };
 
@@ -137,7 +134,6 @@ const SearchPage: React.FC<{
 
     const applyFilters = () => {
         let result = [...events];
-        console.log("filtered before", result);
 
         if (filters.type) result = result.filter((e) => e.category === filters.type);
         if (filters.budget) result = result.filter((e) => e.priceYen <= Number(filters.budget));
@@ -204,6 +200,7 @@ const SearchPage: React.FC<{
 
     useEffect(() => {
         applyFilters();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [events]);
 
     const handleChange = (key: string, value: string) => {
@@ -220,11 +217,63 @@ const SearchPage: React.FC<{
 
                 <div className="flex flex-wrap items-end gap-3 mb-3">
                     {[
-                        { label: "タイプ", key: "type", options: [{ v: "", l: "全て" }, { v: "祭り", l: "祭り" }, { v: "朝市", l: "朝市" }, { v: "体験", l: "体験" }, { v: "展示", l: "展示" }] },
-                        { label: "予算", key: "budget", options: [{ v: "", l: "指定なし" }, { v: "0", l: "無料" }, { v: "1000", l: "~1000円" }, { v: "3000", l: "~3000円" }, { v: "5000", l: "~5000円" }] },
-                        { label: "期間", key: "period", options: [{ v: "", l: "指定なし" }, { v: "today", l: "今日" }, { v: "week", l: "今週" }, { v: "month", l: "今月" }, { v: "year", l: "今年" }, { v: "range", l: "日付指定" }] },
-                        { label: "距離", key: "distance", options: [{ v: "", l: "指定なし" }, { v: "10", l: "車で30分 (10km)" }, { v: "20", l: "車で60分 (20km)" }, { v: "40", l: "車で90分 (40km)" }] },
-                        { label: "地区", key: "area", options: [{ v: "", l: "指定なし" }, { v: "神戸", l: "神戸" }, { v: "阪神", l: "阪神" }, { v: "播磨", l: "播磨" }, { v: "丹波", l: "丹波" }, { v: "但馬", l: "但馬" }, { v: "淡路", l: "淡路" }] },
+                        {
+                            label: "タイプ",
+                            key: "type",
+                            options: [
+                                { v: "", l: "全て" },
+                                { v: "祭り", l: "祭り" },
+                                { v: "朝市", l: "朝市" },
+                                { v: "体験", l: "体験" },
+                                { v: "展示", l: "展示" },
+                            ],
+                        },
+                        {
+                            label: "予算",
+                            key: "budget",
+                            options: [
+                                { v: "", l: "指定なし" },
+                                { v: "0", l: "無料" },
+                                { v: "1000", l: "~1000円" },
+                                { v: "3000", l: "~3000円" },
+                                { v: "5000", l: "~5000円" },
+                            ],
+                        },
+                        {
+                            label: "期間",
+                            key: "period",
+                            options: [
+                                { v: "", l: "指定なし" },
+                                { v: "today", l: "今日" },
+                                { v: "week", l: "今週" },
+                                { v: "month", l: "今月" },
+                                { v: "year", l: "今年" },
+                                { v: "range", l: "日付指定" },
+                            ],
+                        },
+                        {
+                            label: "距離",
+                            key: "distance",
+                            options: [
+                                { v: "", l: "指定なし" },
+                                { v: "10", l: "車で30分 (10km)" },
+                                { v: "20", l: "車で60分 (20km)" },
+                                { v: "40", l: "車で90分 (40km)" },
+                            ],
+                        },
+                        {
+                            label: "地区",
+                            key: "area",
+                            options: [
+                                { v: "", l: "指定なし" },
+                                { v: "神戸", l: "神戸" },
+                                { v: "阪神", l: "阪神" },
+                                { v: "播磨", l: "播磨" },
+                                { v: "丹波", l: "丹波" },
+                                { v: "但馬", l: "但馬" },
+                                { v: "淡路", l: "淡路" },
+                            ],
+                        },
                     ].map((f) => (
                         <label key={f.key} className="flex flex-col gap-1.5 min-w-[140px] flex-1">
                             <span className="text-[10px] text-kakurega-muted font-bold">{f.label}</span>
@@ -357,7 +406,7 @@ const SearchPage: React.FC<{
                                         <button
                                             onClick={(ev) => {
                                                 ev.stopPropagation();
-                                                handleSave(e.id);
+                                                void handleSave(e.id);
                                             }}
                                             className="text-[10px] px-2 py-1 rounded bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/5 flex items-center gap-1 text-kakurega-dark-green font-bold"
                                         >

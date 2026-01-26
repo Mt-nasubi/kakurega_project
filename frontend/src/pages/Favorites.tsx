@@ -12,7 +12,7 @@ const SavedPage: React.FC<{
     favIds: Set<string>;
     setFavIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }> = ({ favIds, setFavIds }) => {
-    const { pushToast } = useToast();
+    const { showToast } = useToast();
     const [savedEvents, setSavedEvents] = useState<KakuregaEvent[]>([]);
     const [, setSearchParams] = useSearchParams();
 
@@ -26,11 +26,13 @@ const SavedPage: React.FC<{
                 setSavedEvents([]);
             }
         };
-        run();
+        void run();
     }, []);
 
     const removeSaved = async (id: string) => {
         const sid = String(id);
+
+        // optimistic update
         setSavedEvents((prev) => prev.filter((e) => String(e.id) !== sid));
         setFavIds((prev) => {
             const next = new Set(prev);
@@ -40,9 +42,9 @@ const SavedPage: React.FC<{
 
         try {
             await removeFavorite(sid);
-            pushToast("お気に入りから削除しました", "info");
+            showToast({ type: "info", message: "お気に入りから削除しました" });
         } catch {
-            pushToast("削除に失敗しました", "error");
+            showToast({ type: "error", message: "削除に失敗しました" });
         }
     };
 
@@ -96,7 +98,7 @@ const SavedPage: React.FC<{
                                     <button
                                         onClick={(ev) => {
                                             ev.stopPropagation();
-                                            removeSaved(String(e.id));
+                                            void removeSaved(String(e.id));
                                         }}
                                         className="p-2 bg-white/90 text-red-500 rounded-full hover:bg-white shadow-sm transition-all"
                                         title="削除"
