@@ -7,6 +7,7 @@ import { useToast } from "../context/toast";
 import { fetchMyFavoriteEvents, removeFavorite } from "../lib/apiClient";
 import { dbToUiEvent } from "../lib/eventMapping";
 import { Card } from "../components/Card";
+import SaveButton from "../components/SaveButton";
 
 const SavedPage: React.FC<{
     favIds: Set<string>;
@@ -95,16 +96,13 @@ const SavedPage: React.FC<{
 
                             <div className="p-4 flex-1 flex flex-col">
                                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <button
-                                        onClick={(ev) => {
-                                            ev.stopPropagation();
-                                            void removeSaved(String(e.id));
-                                        }}
-                                        className="p-2 bg-white/90 text-red-500 rounded-full hover:bg-white shadow-sm transition-all"
-                                        title="削除"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
+                                <SaveButton
+                                    eventId={e.id}
+                                    isSaved={favIds.has(String(e.id))}
+                                    setFavIds={setFavIds}
+                                    size={10}
+                                    className="text-[10px] px-2 py-1 rounded bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/5 text-kakurega-dark-green font-bold"
+                                />
                                 </div>
 
                                 <h3 className="font-serif font-bold text-lg mb-2 text-kakurega-ink pr-8">

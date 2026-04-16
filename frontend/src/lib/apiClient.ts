@@ -14,15 +14,24 @@ const EVENT_SELECT = `
     prefecture,
     city,
     category,
+    location_name,
     latitude,
     longitude,
     tags,
     status,
+    organizer_id,
     organizer_name,
     official_url,
     contact_email,
     contact_phone,
     image_paths,
+    price_yen,
+    fee_note,
+    target_audience,
+    indoor_outdoor,
+    vibe,
+    capacity,
+    reservation_required,
     is_public
 `;
 
@@ -71,16 +80,38 @@ export async function fetchMyFavoriteIds(): Promise<Set<string>> {
 
 export async function addFavorite(eventId: string): Promise<boolean> {
     try {
+        console.log("addFavorite start", { eventId });
+
         const { data: authData, error: authErr } = await supabase.auth.getUser();
-        if (authErr || !authData.user) return false;
+        console.log("addFavorite getUser", { authData, authErr });
 
-        const { error } = await supabase
+        if (authErr || !authData.user) {
+            console.error("addFavorite auth error", authErr);
+            return false;
+        }
+
+        const payload = {
+            user_id: authData.user.id,
+            event_id: eventId,
+        };
+
+        console.log("addFavorite insert payload", payload);
+
+        const { data, error } = await supabase
             .from("favorites")
-            .insert({ user_id: authData.user.id, event_id: eventId });
+            .insert(payload)
+            .select();
 
-        if (error) throw error;
+        console.log("addFavorite insert result", { data, error });
+
+        if (error) {
+            console.error("addFavorite insert error", error);
+            return false;
+        }
+
         return true;
-    } catch {
+    } catch (e) {
+        console.error("addFavorite failed", e);
         return false;
     }
 }

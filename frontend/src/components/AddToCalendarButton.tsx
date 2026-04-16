@@ -26,7 +26,7 @@ const AddToCalendarButton: React.FC<{
             rel="noopener noreferrer"
             className={
                 className ||
-                "flex items-center gap-1.5 text-[10px] font-bold text-kakurega-muted bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/10 px-3 py-1.5 rounded-full transition-colors"
+                "flex items-center gap-1.5 text-[10px] font-bold text-kakurega-muted bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/10 px-2 py-1 rounded transition-colors"
             }
             onClick={(e) => e.stopPropagation()}
         >

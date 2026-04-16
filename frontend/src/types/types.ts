@@ -1,87 +1,88 @@
 // types.ts
 
-// ==============================
-// DB rows (Supabase)
-// ==============================
+// DB 列 (Supabase)
 export type DbEvent = {
-    id: string; // uuid -> string
+    id: string;
     created_at: string;
     updated_at: string;
 
     title: string;
     description: string | null;
 
-    // --- 分割後の開催日時 ---
-    start_date: string;           // "YYYY-MM-DD"
-    start_time: string | null;    // "HH:MM:SS" or null
-    end_date: string | null;      // "YYYY-MM-DD" or null
-    end_time: string | null;      // "HH:MM:SS" or null
+    start_date: string;
+    start_time: string | null;
+    end_date: string | null;
+    end_time: string | null;
 
-    // --- 住所/分類 ---
     prefecture: string | null;
     city: string | null;
     category: string | null;
+    location_name: string | null;
 
-    // --- 地図 ---
     latitude: number | null;
     longitude: number | null;
 
-    // --- メタ ---
-    status: string | null;              // 'scheduled' | 'ended' | 'canceled' など
+    status: string | null;
+    organizer_id: string | null;
     organizer_name: string | null;
+
     official_url: string | null;
     contact_email: string | null;
     contact_phone: string | null;
 
-    // --- タグ/画像 ---
-    tags: string[] | null;              // text[] -> string[]
-    image_paths: string[] | null;        // text[] -> string[]
+    tags: string[] | null;
+    image_paths: string[] | null;
 
     is_public: boolean;
+    price_yen: number | null;
+    fee_note: string | null;
+    target_audience: string | null;
+    indoor_outdoor: string | null;
+    vibe: string | null;
+    capacity: number | null;
+    reservation_required: boolean | null;
 
-        // 距離フィルタ時に付く
     distKm?: number;
 };
 
-// ==============================
-// UI model
-// ==============================
-export type KakuregaEventStatus = 'scheduled' | 'ended' | 'canceled';
-
+// UI 用のイベント型
 export type KakuregaEvent = {
     id: string;
-
     title: string;
     description?: string;
 
-    // UIで使ってる
     category: string;
     city: string;
     area: string;
 
-    // UIの検索/表示用
-    date: string;        // "YYYY-MM-DD"
-    startTime?: string;  // "HH:MM"
+    date: string;
+    startTime?: string;
     endTime?: string;
 
-    // 地図で使う（無い場合は変換時にデフォ値を入れる）
     lat: number;
     lng: number;
 
-    // 追加要素（DBから来る）
     prefecture?: string;
-    status?: KakuregaEventStatus | string; // DBが自由文字列ならstring許容
+    status?: string;
     officialUrl?: string;
     contactEmail?: string;
     contactPhone?: string;
+    locationName?: string;
 
     priceYen: number;
+    feeNote?: string;
+    targetAudience?: string;
+    indoorOutdoor?: string;
+    vibe?: string;
+    capacity?: number;
+    reservationRequired?: boolean;
+
     organizer?: string;
     tags?: string[];
 
     imagePaths?: string[];
+    imageUrl?: string;
 
-    // 距離フィルタ時に付く
     distKm?: number;
 };
 

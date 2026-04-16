@@ -16,7 +16,7 @@ export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (!user) {
         const next = location.pathname + location.search;
-        return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
+        return <Navigate to={`/require-login?next=${encodeURIComponent(next)}`} replace />;
     }
 
     return <>{children}</>;

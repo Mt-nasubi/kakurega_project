@@ -5,6 +5,7 @@ import { Calendar, MapPin, User, Tag, Star, X, CalendarPlus, Check, Link as Link
 import type { KakuregaEvent } from "../types/types";
 import { useToast } from "../context/toast";
 import { addFavorite, removeFavorite } from "../lib/apiClient";
+import { useAuth } from "../lib/auth";
 import AddToCalendarButton from "./AddToCalendarButton";
 import CopyLinkButton from "./CopyLinkButton";
 import { FALLBACK_IMAGE } from "../lib/storage";
@@ -29,7 +30,8 @@ const EventDetailModal: React.FC<{
     }, []);
 
     const isSaved = favIds.has(String(eventId));
-    const { pushToast } = useToast();
+    const { showToast } = useToast();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -37,21 +39,18 @@ const EventDetailModal: React.FC<{
         const id = String(eventId);
         const isFav = favIds.has(id);
 
+        if (!user) {
+            const next = `${location.pathname}${location.search}`;
+            navigate(`/require-login?next=${encodeURIComponent(next)}`);
+            return;
+        }
+
         try {
             if (isFav) {
                 const ok = await removeFavorite(id);
+
                 if (!ok) {
-                    pushToast(
-                        "お気に入りにはログインが必要です",
-                        "info",
-                        {
-                            label: "ログインする",
-                            onClick: () => {
-                                const next = `${location.pathname}${location.search}`;
-                                navigate(`/login?next=${encodeURIComponent(next)}`);
-                            },
-                        }
-                    );
+                    showToast({ type: "error", message: "削除に失敗しました" });
                     return;
                 }
 
@@ -60,21 +59,13 @@ const EventDetailModal: React.FC<{
                     next.delete(id);
                     return next;
                 });
-                pushToast("お気に入りから削除しました", "info");
+
+                showToast({ type: "info", message: "お気に入りから削除しました" });
             } else {
                 const ok = await addFavorite(id);
+
                 if (!ok) {
-                    pushToast(
-                        "お気に入りにはログインが必要です",
-                        "info",
-                        {
-                            label: "ログインする",
-                            onClick: () => {
-                                const next = `${location.pathname}${location.search}`;
-                                navigate(`/login?next=${encodeURIComponent(next)}`);
-                            },
-                        }
-                    );
+                    showToast({ type: "error", message: "保存に失敗しました" });
                     return;
                 }
 
@@ -83,10 +74,11 @@ const EventDetailModal: React.FC<{
                     next.add(id);
                     return next;
                 });
-                pushToast("保存しました", "success");
+
+                showToast({ type: "success", message: "保存しました" });
             }
         } catch {
-            pushToast("保存に失敗しました", "error");
+            showToast({ type: "error", message: "保存に失敗しました" });
         }
     };
 
@@ -121,131 +113,15 @@ const EventDetailModal: React.FC<{
                         </button>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 p-6 text-white w-full">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="px-3 py-1 bg-kakurega-green text-xs font-bold rounded-full shadow-sm border border-white/20">
-                                {e.category}
-                            </span>
-                            {e.distKm !== undefined && e.distKm !== null && (
-                                <span className="px-2 py-1 bg-black/40 backdrop-blur text-xs rounded-full flex items-center gap-1">
-                                    <MapPin size={10} /> {e.distKm.toFixed(1)}km
-                                </span>
-                            )}
-                        </div>
-                        <h2 className="font-serif text-2xl sm:text-3xl font-bold leading-tight drop-shadow-md">
-                            {e.title}
-                        </h2>
-                    </div>
-                </div>
-
-                <div className="overflow-y-auto p-6 custom-scrollbar bg-[#f8f1e3]">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-                        <div className="bg-white/60 p-3.5 rounded-2xl border border-black/5 flex items-start gap-3">
-                            <div className="p-2 bg-kakurega-green/10 rounded-full text-kakurega-green mt-0.5">
-                                <Calendar size={18} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-kakurega-muted font-bold tracking-wider">DATE</p>
-                                <p className="font-bold text-kakurega-ink text-sm">
-                                    {e.date.replace(/-/g, ".")}
-                                </p>
-                                <p className="text-xs text-kakurega-muted mt-0.5">
-                                    {e.startTime} - {e.endTime}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="bg-white/60 p-3.5 rounded-2xl border border-black/5 flex items-start gap-3">
-                            <div className="p-2 bg-kakurega-green/10 rounded-full text-kakurega-green mt-0.5">
-                                <MapPin size={18} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-kakurega-muted font-bold tracking-wider">AREA</p>
-                                <p className="font-bold text-kakurega-ink text-sm">{e.city}</p>
-                                <p className="text-xs text-kakurega-muted mt-0.5">{e.area}</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-white/60 p-3.5 rounded-2xl border border-black/5 flex items-start gap-3">
-                            <div className="p-2 bg-kakurega-green/10 rounded-full text-kakurega-green mt-0.5">
-                                <User size={18} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-kakurega-muted font-bold tracking-wider">ORGANIZER</p>
-                                <p className="font-bold text-kakurega-ink text-sm">{e.organizer || "詳細なし"}</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-white/60 p-3.5 rounded-2xl border border-black/5 flex items-start gap-3">
-                            <div className="p-2 bg-kakurega-green/10 rounded-full text-kakurega-green mt-0.5">
-                                <Tag size={18} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] text-kakurega-muted font-bold tracking-wider">PRICE</p>
-                                <p className="font-bold text-kakurega-green text-sm">
-                                    {e.priceYen === 0 ? "無料" : `¥${e.priceYen.toLocaleString()}`}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mb-8">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="w-1 h-5 bg-kakurega-green rounded-full"></div>
-                            <h3 className="font-serif text-lg font-bold text-kakurega-ink">イベント詳細</h3>
-                        </div>
-                        <p className="leading-loose text-sm text-kakurega-ink/90 whitespace-pre-wrap font-medium">
-                            {e.description || "詳細情報は現在確認中です。主催者へお問い合わせください。"}
-                        </p>
-                    </div>
-
-                    {e.tags && e.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-8">
-                            {e.tags.map((t) => (
-                                <span
-                                    key={t}
-                                    className="px-3 py-1.5 bg-white border border-black/5 rounded-lg text-xs font-medium text-kakurega-muted shadow-sm"
-                                >
-                                    {t}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="flex flex-col gap-3 pt-6 border-t border-black/10">
-                        <div className="flex gap-3">
-                            <AddToCalendarButton
-                                event={e}
-                                className="flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 bg-white border-2 border-transparent hover:border-kakurega-green/30 shadow-sm text-kakurega-ink rounded-xl transition-all"
-                            >
-                                <CalendarPlus size={18} />
-                                予定に追加
-                            </AddToCalendarButton>
-
-                            <button
-                                onClick={toggleSave}
-                                className={`flex-1 py-3 rounded-xl font-bold shadow-md transition-all flex items-center justify-center gap-2 border-2
-                                    ${isSaved
-                                        ? "bg-white border-kakurega-green text-kakurega-green"
-                                        : "bg-kakurega-green border-transparent text-white hover:bg-kakurega-dark-green"
-                                    }`}
-                            >
-                                <Star size={18} fill={isSaved ? "currentColor" : "none"} />
-                                {isSaved ? "保存済み" : "保存する"}
-                            </button>
-                        </div>
-
-                        <div className="flex justify-center">
-                            <Link
-                                to={`/search?event_id=${encodeURIComponent(String(eventId))}`}
-                                onClick={onClose}
-                                className="text-xs text-kakurega-muted flex items-center gap-1 hover:text-kakurega-green transition-colors py-2"
-                            >
-                                <MapPin size={12} />
-                                地図で位置を確認する
-                            </Link>
-                        </div>
-                    </div>
+                    <button
+                        onClick={toggleSave}
+                        className="absolute bottom-4 right-4 z-10 bg-white/90 hover:bg-white text-kakurega-ink rounded-full px-4 py-2 flex items-center gap-2 shadow-lg transition-colors"
+                    >
+                        <Star size={18} className={isSaved ? "fill-current" : ""} />
+                        <span className="text-sm font-medium">
+                            {isSaved ? "保存済み" : "保存する"}
+                        </span>
+                    </button>
                 </div>
             </div>
         </div>

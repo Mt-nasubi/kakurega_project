@@ -64,14 +64,14 @@ const LoginPage: React.FC = () => {
             navigate(next, { replace: true });
             return;
         }
-
+    
         setLoading(true);
         setError(null);
         setMessage(null);
-
+    
         try {
             if (!validateCommon()) return;
-
+        
             const { data, error } = await withTimeout(
                 supabase.auth.signInWithPassword({
                     email: email.trim(),
@@ -80,17 +80,26 @@ const LoginPage: React.FC = () => {
                 8000,
                 "signInWithPassword"
             );
-
-            if (error) throw error;
+        
+            if (error) {
+                if (error.message === "Invalid login credentials") {
+                    throw new Error("メールアドレスまたはパスワードが違います");
+                } else if (error.message === "Email not confirmed") {
+                    throw new Error("メール認証が完了していません");
+                } else {
+                    throw new Error("ログインに失敗しました");
+                }
+            }
+        
             if (!data.session) {
                 setError("ログインに失敗しました。もう一度お試しください。");
                 return;
             }
-
+        
             ensureProfile()
                 .then(() => console.log("ensureProfile OK (Login)"))
                 .catch((e) => console.error("ensureProfile failed (Login)", e));
-
+        
             navigate(next, { replace: true });
         } catch (e: any) {
             console.error(e);

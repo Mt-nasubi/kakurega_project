@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import type { KakuregaEvent } from "../types/types";
 import CopyLinkButton from "./CopyLinkButton";
 import AddToCalendarButton from "./AddToCalendarButton";
+import SaveButton from "./SaveButton";
 import { FALLBACK_IMAGE } from "../lib/storage";
 
 const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
@@ -107,9 +108,12 @@ const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
                     </div>
 
                     <div className="flex gap-2">
-                        <CopyLinkButton
+                        <SaveButton
                             eventId={event.id}
-                            className="flex items-center gap-1.5 text-[10px] font-bold text-kakurega-muted bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/10 px-3 py-1.5 rounded-full transition-colors"
+                            isSaved={false}
+                            setFavIds={() => {}}
+                            size={10}
+                            className="text-[10px] px-2 py-1 rounded bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/5 flex items-center gap-1 text-kakurega-dark-green font-bold"
                         />
                         <AddToCalendarButton event={event} />
                     </div>

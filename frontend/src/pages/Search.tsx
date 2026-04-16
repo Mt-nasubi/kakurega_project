@@ -5,8 +5,10 @@ import { CalendarPlus, Filter, MapPin, Star } from "lucide-react";
 import type { KakuregaEvent, UserLocation } from "../types/types";
 import { useToast } from "../context/toast";
 import { addFavorite } from "../lib/apiClient";
+import { useAuth } from "../lib/auth";
 import MapViewer from "../components/MapViewer";
 import AddToCalendarButton from "../components/AddToCalendarButton";
+import SaveButton from "../components/SaveButton";
 
 const SearchPage: React.FC<{
     events: any[];
@@ -15,6 +17,7 @@ const SearchPage: React.FC<{
     setFavIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }> = ({ events, eventsLoading, favIds, setFavIds }) => {
     const { showToast } = useToast();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -53,6 +56,13 @@ const SearchPage: React.FC<{
     const handleSave = async (id: string) => {
         const sid = String(id);
 
+        if (!user) {
+            showToast({ type: "info", message: "お気に入りにはログインが必要です" });
+            const next = `${location.pathname}${location.search}`;
+            navigate(`/login?next=${encodeURIComponent(next)}`);
+            return;
+        }
+
         if (favIds.has(sid)) {
             showToast({ type: "info", message: "すでに保存されています" });
             return;
@@ -62,12 +72,7 @@ const SearchPage: React.FC<{
             const ok = await addFavorite(sid);
 
             if (!ok) {
-                showToast({ type: "info", message: "お気に入りにはログインが必要です" });
-
-                // 以前の「トースト内ボタン」をやりたいなら Toast側の拡張が必要。
-                // いまは即ログインへ誘導（または confirm）にするのが最小変更。
-                const next = `${location.pathname}${location.search}`;
-                navigate(`/login?next=${encodeURIComponent(next)}`);
+                showToast({ type: "error", message: "保存に失敗しました" });
                 return;
             }
 
@@ -402,16 +407,14 @@ const SearchPage: React.FC<{
                                         >
                                             <MapPin size={10} /> 地図
                                         </button>
-
-                                        <button
-                                            onClick={(ev) => {
-                                                ev.stopPropagation();
-                                                void handleSave(e.id);
-                                            }}
+                                        
+                                        <SaveButton
+                                            eventId={String(e.id)}
+                                            isSaved={favIds.has(String(e.id))}
+                                            setFavIds={setFavIds}
+                                            size={10}
                                             className="text-[10px] px-2 py-1 rounded bg-kakurega-paper hover:bg-kakurega-paper-light border border-black/5 flex items-center gap-1 text-kakurega-dark-green font-bold"
-                                        >
-                                            <Star size={10} /> 保存
-                                        </button>
+                                        />
                                     </div>
                                 </div>
                             ))

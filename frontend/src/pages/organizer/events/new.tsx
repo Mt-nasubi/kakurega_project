@@ -16,11 +16,20 @@ type EventInsert = {
     status: string;
     is_public: boolean;
     official_url: string;
+    contact_email: string;
+    contact_phone: string;
     start_date: string | null;
     start_time: string | null;
     end_date: string | null;
     end_time: string | null;
     image_paths: string[];
+    price_yen: number;
+    fee_note: string;
+    target_audience: string;
+    indoor_outdoor: string;
+    vibe: string;
+    capacity: number | null;
+    reservation_required: boolean;
 };
 
 function splitTags(s: string): string[] {
@@ -89,6 +98,15 @@ const OrganizerEventNewPage: React.FC = () => {
     const [longitudeRaw, setLongitudeRaw] = useState("");
 
     const [files, setFiles] = useState<File[]>([]);
+    const [contactEmail, setContactEmail] = useState("");
+    const [contactPhone, setContactPhone] = useState("");
+    const [priceYen, setPriceYen] = useState("0");
+    const [feeNote, setFeeNote] = useState("");
+    const [targetAudience, setTargetAudience] = useState("");
+    const [indoorOutdoor, setIndoorOutdoor] = useState("indoor");
+    const [vibe, setVibe] = useState("");
+    const [capacityRaw, setCapacityRaw] = useState("");
+    const [reservationRequired, setReservationRequired] = useState(false);
 
     const tags = useMemo(() => splitTags(tagsRaw), [tagsRaw]);
 
@@ -117,6 +135,9 @@ const OrganizerEventNewPage: React.FC = () => {
             const lat = latitudeRaw.trim() ? Number(latitudeRaw) : null;
             const lng = longitudeRaw.trim() ? Number(longitudeRaw) : null;
 
+            const capacity = capacityRaw.trim() ? Number(capacityRaw) : null;
+            const price = priceYen.trim() ? Number(priceYen) : 0;
+                    
             const payload: EventInsert = {
                 organizer_id: userId,
                 title: title.trim(),
@@ -131,11 +152,20 @@ const OrganizerEventNewPage: React.FC = () => {
                 status,
                 is_public: isPublic,
                 official_url: officialUrl.trim(),
+                contact_email: contactEmail.trim(),
+                contact_phone: contactPhone.trim(),
                 start_date: startDate ? startDate : null,
                 start_time: startTime ? startTime : null,
                 end_date: endDate ? endDate : null,
                 end_time: endTime ? endTime : null,
                 image_paths: [],
+                price_yen: Number.isFinite(price) ? price : 0,
+                fee_note: feeNote.trim(),
+                target_audience: targetAudience.trim(),
+                indoor_outdoor: indoorOutdoor,
+                vibe: vibe.trim(),
+                capacity: Number.isFinite(capacity as any) ? capacity : null,
+                reservation_required: reservationRequired,
             };
 
             // まずイベントを作る（event_id確定）
@@ -264,8 +294,9 @@ const OrganizerEventNewPage: React.FC = () => {
                         <span>状態</span>
                         <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ padding: 10, borderRadius: 8, border: "1px solid #ccc" }}>
                             <option value="draft">draft</option>
-                            <option value="published">published</option>
-                            <option value="archived">archived</option>
+                            <option value="scheduled">scheduled</option>
+                            <option value="cancelled">cancelled</option>
+                            <option value="finished">finished</option>
                         </select>
                     </label>
                     <label style={{ display: "flex", gap: 10, alignItems: "center", paddingTop: 26 }}>

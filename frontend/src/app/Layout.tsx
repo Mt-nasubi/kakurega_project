@@ -35,7 +35,7 @@ const Layout: React.FC<{
             { path: "/", icon: <HomeIcon size={22} />, label: "ホーム" },
             { path: "/search", icon: <SearchIcon size={22} />, label: "検索" },
             { path: "/saved", icon: <Star size={22} />, label: "保存" },
-            { path: "/about", icon: <Info size={22} />, label: "案内" },
+            { path: "/guide", icon: <Info size={22} />, label: "ガイド" },
         ],
         []
     );
