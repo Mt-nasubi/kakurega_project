@@ -264,6 +264,22 @@ const MyPage: React.FC = () => {
                     )}
                 </section>
             </div>
+
+            <div className="mt-8 flex justify-center gap-3">
+                <button
+                    className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors disabled:opacity-60"
+                    type="button"
+                >
+                    戻る
+                </button>
+                <button
+                    onClick={() => navigate("/")}
+                    className="px-5 py-3 bg-white border border-black/10 rounded-xl text-xs font-bold text-kakurega-ink hover:bg-black/5 transition-colors disabled:opacity-60"
+                    type="button"
+                >
+                    ホームへ
+                </button>
+            </div>
         </div>
     );
 };
