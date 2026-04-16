@@ -156,26 +156,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!mounted) return;
 
             if (event === "INITIAL_SESSION") {
-                // 起動時復元イベント：トーストしない（状態だけ合わせる）
                 if (newSession) {
-                    await handleSignedIn(newSession);
+                    void handleSignedIn(newSession);
                 } else {
                     handleSignedOut();
                 }
                 finishInitializing();
                 return;
             }
-
+            
             if (event === "SIGNED_IN") {
                 if (newSession) {
-                    await handleSignedIn(newSession);
+                    void handleSignedIn(newSession);
                 }
-
-                // 起動中に飛ぶ SIGNED_IN は“復元扱い”として抑制
+            
                 if (!bootPhaseRef.current) {
                     toastOnce("signed_in", "ログインしました。", "success");
                 }
-
+            
                 finishInitializing();
                 return;
             }
