@@ -50,6 +50,7 @@ export type KakuregaEvent = {
     id: string;
     title: string;
     description?: string;
+    updated_at?: string;
 
     category: string;
     city: string;

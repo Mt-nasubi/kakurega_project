@@ -6,8 +6,10 @@ import type { KakuregaEvent } from "../types/types";
 import { useToast } from "../context/toast";
 import { fetchMyFavoriteEvents, removeFavorite } from "../lib/apiClient";
 import { dbToUiEvent } from "../lib/eventMapping";
+import { FALLBACK_IMAGE } from "../lib/storage";
 import { Card } from "../components/Card";
 import SaveButton from "../components/SaveButton";
+
 
 const SavedPage: React.FC<{
     favIds: Set<string>;
@@ -86,7 +88,11 @@ const SavedPage: React.FC<{
                             {e.imageUrl && (
                                 <div className="h-32 w-full overflow-hidden relative">
                                     <img
-                                        src={e.imageUrl}
+                                        src={
+                                            e.imageUrl
+                                                ? `${e.imageUrl}?v=${e.updated_at ?? ""}`
+                                                : FALLBACK_IMAGE
+                                        }
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         alt={e.title}
                                     />

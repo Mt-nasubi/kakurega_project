@@ -168,7 +168,7 @@ const MyPage: React.FC = () => {
                             value={displayName}
                             onChange={(e) => setDisplayName(e.target.value)}
                             className="w-full rounded-2xl border border-black/10 px-4 py-3 outline-none focus:ring-2 focus:ring-kakurega-green/40 bg-white"
-                            placeholder="例：太一"
+                            placeholder="ログインネーム"
                             disabled={saving}
                         />
                         {!profile && (

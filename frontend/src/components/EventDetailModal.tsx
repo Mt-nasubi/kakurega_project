@@ -92,7 +92,11 @@ const EventDetailModal: React.FC<{
             <div className="bg-[#f8f1e3] w-full max-w-2xl max-h-[90vh] rounded-3xl shadow-2xl relative overflow-hidden flex flex-col animate-fade-in">
                 <div className="h-56 sm:h-72 relative shrink-0">
                     <img
-                        src={e.imageUrl || FALLBACK_IMAGE}
+                        src={
+                            e.imageUrl
+                                ? `${e.imageUrl}?v=${e.updated_at ?? ""}`
+                                : FALLBACK_IMAGE
+                        }
                         className="w-full h-full object-cover"
                         alt={e.title}
                     />

@@ -32,7 +32,11 @@ const RichEventCard: React.FC<{ event: KakuregaEvent }> = ({ event }) => {
         >
             <div className="relative h-48 overflow-hidden">
                 <img
-                    src={event.imageUrl || FALLBACK_IMAGE}
+                    src={
+                        event.imageUrl
+                            ? `${event.imageUrl}?v=${event.updated_at ?? ""}`
+                            : FALLBACK_IMAGE
+                    }
                     alt={event.title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />

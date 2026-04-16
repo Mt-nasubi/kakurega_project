@@ -691,7 +691,7 @@ const EditOrganizerEventPage: React.FC = () => {
                             >
                                 {imageUrls[p] ? (
                                     <img
-                                        src={imageUrls[p]}
+                                        src={`${imageUrls[p]}?t=${p}`}
                                         alt=""
                                         style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: 10 }}
                                     />

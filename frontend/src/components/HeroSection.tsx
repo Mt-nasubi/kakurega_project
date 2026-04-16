@@ -32,7 +32,7 @@ const HeroSection: React.FC<{ events: any[] }> = ({ events }) => {
                 >
                     <div className="absolute inset-0 bg-black/40 z-10" />
                     <img
-                        src={img}
+                        src={`${img}?t=${index}`}
                         alt="Hero background"
                         className={`w-full h-full object-cover transition-transform duration-[10s] ease-linear ${index === currentImageIndex ? "scale-110" : "scale-100"}`}
                     />
