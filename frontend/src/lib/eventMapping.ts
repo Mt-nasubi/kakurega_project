@@ -24,42 +24,49 @@ function resolveHyogoArea(city?: string | null): string {
     return "";
 }
 
-export const dbToUiEvent = (d: DbEvent): KakuregaEvent => {
-    const toHHMM = (t: string | null | undefined) => (t ? String(t).slice(0, 5) : "");
-
-    const imagePaths = Array.isArray(d.image_paths)
-        ? d.image_paths.map((p) => String(p))
-        : [];
-
+export function dbToUiEvent(row: DbEvent): KakuregaEvent {
     return {
-        id: String(d.id),
-        title: d.title ?? "",
-        description: d.description ?? "",
-        category: d.category ?? "",
-        city: d.city ?? "",
-        area: resolveHyogoArea(d.city),
+        id: row.id,
+        title: row.title,
+        description: row.description ?? "",
+        updated_at: row.updated_at,
 
-        date: d.start_date ?? "",
-        startTime: toHHMM(d.start_time),
-        endTime: toHHMM(d.end_time),
+        category: row.category ?? "",
+        city: row.city ?? "",
+        area: row.prefecture ?? "",
 
-        lat: d.latitude != null ? Number(d.latitude) : 34.6937,
-        lng: d.longitude != null ? Number(d.longitude) : 135.1955,
+        date: row.start_date,
+        startTime: row.start_time ?? undefined,
+        endTime: row.end_time ?? undefined,
 
-        prefecture: d.prefecture ?? "",
-        status: d.status ?? "",
-        officialUrl: d.official_url ?? "",
-        contactEmail: d.contact_email ?? "",
-        contactPhone: d.contact_phone ?? "",
-        locationName: d.location_name ?? "",
+        lat: row.latitude ?? 0,
+        lng: row.longitude ?? 0,
 
-        priceYen: d.price_yen ?? 0,
-        organizer: d.organizer_name ?? "",
-        tags: d.tags ?? [],
+        prefecture: row.prefecture ?? undefined,
+        status: row.status ?? undefined,
+        officialUrl: row.official_url ?? undefined,
+        contactEmail: row.contact_email ?? undefined,
+        contactPhone: row.contact_phone ?? undefined,
+        locationName: row.location_name ?? undefined,
 
-        imagePaths,
-        imageUrl: coverImageUrl({ imagePaths }),
+        priceYen: row.price_yen ?? 0,
+        feeNote: row.fee_note ?? undefined,
+        targetAudience: row.target_audience ?? undefined,
+        indoorOutdoor: row.indoor_outdoor ?? undefined,
+        vibe: row.vibe ?? undefined,
+        capacity: row.capacity ?? undefined,
+        reservationRequired: row.reservation_required ?? undefined,
+
+        organizer: row.organizer_name ?? undefined,
+        tags: row.tags ?? undefined,
+
+        imagePaths: row.image_paths ?? undefined,
+        imageUrl: row.image_paths?.[0]
+            ? `https://orhsxkwkcqldmhhqzeoq.supabase.co/storage/v1/object/public/event-images/${row.image_paths[0]}`
+            : undefined,
+
+        distKm: row.distKm,
     };
-};
+}
 
 export { resolveHyogoArea };

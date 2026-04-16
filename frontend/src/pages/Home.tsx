@@ -25,7 +25,7 @@ const HomePage: React.FC<{ events: any[]; eventsLoading: boolean }> = ({ events 
                     {[
                         { title: "探しやすさ", desc: "キーワード入力不要。直感的な選択で、迷わず目的のイベントへ。" },
                         { title: "生活圏ファースト", desc: "行政区切りではなく「行ける距離」で。隣町の魅力も発見できます。" },
-                        { title: "保存して計画", desc: "気になったらワンタップで保存。週末の予定作りをスムーズに。" },
+                        { title: "気になるイベントをすぐ保存", desc: "気になったイベントはログインして保存しよう！" },
                     ].map((item, i) => (
                         <Card key={i} className="hover:bg-white transition-colors">
                             <h2 className="text-sm font-bold mb-2 text-kakurega-green font-serif">

@@ -60,7 +60,7 @@ const HeroSection: React.FC<{ events: any[] }> = ({ events }) => {
 
                 <p className="text-white/80 text-sm md:text-lg leading-relaxed max-w-xl mb-10 font-medium tracking-wide border-l-2 border-kakurega-green pl-6">
                     観光地ではない、あなたの生活圏にある「隠れ家」のようなイベントたち。<br className="hidden md:block" />
-                    週末は少し足を延ばして、新しいお気に入りを探しに行きませんか？
+                    休日は少し足を延ばして、新しいお気に入りを探しに行きませんか？
                 </p>
 
                 <div className="flex flex-wrap gap-4">
@@ -73,14 +73,6 @@ const HeroSection: React.FC<{ events: any[] }> = ({ events }) => {
                             今すぐ探す
                         </span>
                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                    </Link>
-
-                    <Link
-                        to="/about"
-                        className="px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full font-bold hover:bg-white/20 transition-all duration-300 flex items-center gap-2"
-                    >
-                        <Info size={20} />
-                        Kakuregaとは
                     </Link>
                 </div>
             </div>
